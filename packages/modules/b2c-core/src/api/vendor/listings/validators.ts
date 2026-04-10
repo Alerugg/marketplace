@@ -9,7 +9,14 @@ const listingFilterableFields = z.object({
   seller_id: z.union([z.string(), z.array(z.string())]).optional(),
   condition_code: z.union([z.string(), z.array(z.string())]).optional(),
   currency_code: z.union([z.string(), z.array(z.string())]).optional(),
-  status: z.union([z.string(), z.array(z.string())]).optional()
+  status: z
+    .union([
+      z.enum(['draft', 'active', 'reserved', 'sold', 'paused', 'archived']),
+      z.array(
+        z.enum(['draft', 'active', 'reserved', 'sold', 'paused', 'archived'])
+      )
+    ])
+    .optional()
 })
 
 export type VendorGetListingsParamsType = z.infer<typeof VendorGetListingsParams>
@@ -24,12 +31,11 @@ export type VendorCreateListingType = z.infer<typeof VendorCreateListing>
 export const VendorCreateListing = z
   .object({
     print_id: z.string(),
-    seller_id: z.string(),
     price_amount: z.number(),
     currency_code: z.string(),
     condition_code: z.string(),
     quantity_available: z.number().int(),
-    status: z.string(),
+    status: z.enum(['draft', 'active', 'reserved', 'sold', 'paused', 'archived']),
     seller_note: z.string().nullish(),
     photos: z.array(z.string()).nullish(),
     location_country: z.string().nullish(),
@@ -41,12 +47,13 @@ export type VendorUpdateListingType = z.infer<typeof VendorUpdateListing>
 export const VendorUpdateListing = z
   .object({
     print_id: z.string().optional(),
-    seller_id: z.string().optional(),
     price_amount: z.number().optional(),
     currency_code: z.string().optional(),
     condition_code: z.string().optional(),
     quantity_available: z.number().int().optional(),
-    status: z.string().optional(),
+    status: z
+      .enum(['draft', 'active', 'reserved', 'sold', 'paused', 'archived'])
+      .optional(),
     seller_note: z.string().nullish(),
     photos: z.array(z.string()).nullish(),
     location_country: z.string().nullish(),
