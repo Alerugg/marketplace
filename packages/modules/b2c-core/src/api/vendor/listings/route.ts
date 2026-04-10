@@ -3,10 +3,7 @@ import {
   MedusaResponse,
   refetchEntity
 } from '@medusajs/framework'
-import {
-  ContainerRegistrationKeys,
-  MedusaError
-} from '@medusajs/framework/utils'
+import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
 
 import { LISTING_MODULE, ListingModuleService } from '../../../modules/listing'
 import { fetchSellerByAuthActorId } from '../../../shared/infra/http/utils'
@@ -24,14 +21,10 @@ export const POST = async (
     req.scope
   )
 
-  if (req.validatedBody.seller_id !== seller.id) {
-    throw new MedusaError(
-      MedusaError.Types.INVALID_DATA,
-      'seller_id must match the authenticated seller'
-    )
-  }
-
-  const listing = await listingModuleService.createListings(req.validatedBody as any)
+  const listing = await listingModuleService.createListings({
+    ...req.validatedBody,
+    seller_id: seller.id
+  } as any)
 
   const listingData = await refetchEntity(
     'listing',
