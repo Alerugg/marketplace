@@ -1,57 +1,65 @@
-# Marketplace fork (Mercur) — análisis y plan de adaptación
+# Marketplace fork (Mercur) — catalog adaptation corrections and backend Phase 1
 
-## Fase 0 — inspección controlada
+## Scope correction (this revision)
 
-## Arquitectura actual (repositorio presente)
+This plan intentionally corrects the previous direction:
 
-El fork actual contiene principalmente **backend y módulos de dominio** de Mercur/Medusa:
+- The marketplace backend is being adapted to a **print-centric listing domain**, not a card-centric mock flow.
+- `print_id` is the canonical marketplace reference for listings.
+- `print_id` is mandatory for any listing that can be published.
+- Marketplace storage is limited to listing/transaction-specific state; it must not persist catalog truth.
+- No storefront explorer implementation is assumed in this repository.
+- No root-level generic catalog helpers (such as `lib/api/catalog.js`) are part of this phase.
 
-- `apps/backend`: servidor principal Medusa, configuración, scripts seed y tests HTTP básicos.
-- `packages/framework`: tipos, utilidades y middlewares compartidos para entidades marketplace.
-- `packages/modules/*`: módulos de negocio (b2c-core, commission, reviews, payments, etc.).
+## Current repo grounding
 
-No hay storefront B2C completo dentro de este repo (el propio README referencia un repo aparte para storefront), por lo que en este código no existen actualmente páginas de explorer/card-grid del frontend final.
+The repository primarily contains Medusa/Mercur backend packages and plugins, with module patterns concentrated in:
 
-## Componentes/partes reutilizables
+- `packages/modules/b2c-core/src/modules/*` for domain models/services/module registration.
+- `packages/modules/b2c-core/src/api/*` for admin/store route handlers.
+- `packages/modules/b2c-core/src/workflows/*` for orchestration.
 
-1. **Contrato de marketplace y tipos**
-   - Tipos y contratos en `packages/framework/src/types/*` (seller, marketplace, reviews, etc.).
-2. **Patrones de módulos y estructura por dominio**
-   - Organización por `api`, `modules`, `workflows`, `subscribers` en `packages/modules/b2c-core`.
-3. **Infra y tooling existente**
-   - Turbo workspaces, lint/build scripts, estructura de paquetes ya probada.
+For a minimal backend-only foundation with low breakage risk, the right insertion point is a new module under `packages/modules/b2c-core/src/modules`.
 
-## Partes acopladas al backend propio (a evitar para catálogo externo)
+## Backend Phase 1 objective
 
-1. Lógica de catálogo/producto dependiente de Medusa/Mercur en backend y seeds.
-2. Reglas internas de configuración del catálogo global (`global_product_catalog`, etc.).
-3. Flujo de ingestión/sincronización pensado para entidades internas de Mercur.
+Introduce a minimal `listing` domain foundation without rewriting existing product flows.
 
-## Qué no sirve para este caso (o debe quedar fuera del alcance ahora)
+### Canonical listing shape (Phase 1)
 
-1. Integraciones de pago y payout (Stripe connect, payouts).
-2. Flujos de vendor onboarding / comisiones / fulfilment específicos de Mercur.
-3. Cualquier duplicación de catálogo local si la fuente de verdad será `API-PROJECT`.
+The listing model is centered on:
 
----
+- `print_id` (required)
+- `seller_id`
+- `price_amount`
+- `currency_code`
+- `condition_code`
+- `quantity_available`
+- `status`
+- `seller_note`
+- `photos`
+- `location_country`
+- `shipping_profile_id`
 
-## Fases 1–4 (adaptación incremental, sin rewrite)
+## Implementation notes for this phase
 
-### Fase 1 — adaptación (no rewrite)
-- Reusar UI/estructura existente cuando esté disponible.
-- Cambiar el origen de datos del catálogo al cliente externo.
+1. Add a dedicated `listing` module (model + service + module definition) under `b2c-core` module conventions.
+2. Add a migration creating a first-party `listing` table with soft-delete index and basic access indexes (`print_id`, `seller_id`, `status`).
+3. Do not add storefront code.
+4. Do not add card-based mocks.
+5. Do not duplicate external catalog metadata in local storage.
+6. Do not refactor/replace existing product logic in this phase.
 
-### Fase 2 — integración API
-- Añadir cliente `lib/api/catalog.js` con:
-  - `searchCatalog`
-  - `fetchSets`
-  - `fetchCard`
+## Out of scope (intentionally unimplemented)
 
-### Fase 3 — UI adaptation
-- En este repo no están presentes componentes de explorer/card-grid del storefront.
-- Cuando se incorporen (o en el repo de storefront), conectar esas vistas al cliente de `lib/api/catalog.js`.
+- Full listing CRUD APIs across admin/store surfaces.
+- Seller ownership guards/authorization middleware for listing routes.
+- Catalog client integration and print enrichment fetching.
+- Payment, checkout, payout, and inventory reservation integration for listings.
+- Product-to-listing migration/refactor.
 
-### Fase 4 — lógica marketplace
-- Mantener UI de listings cuando exista.
-- Usar `mock` simple para listings iniciales (sin pagos ni backend propio).
+## Next phases (high-level)
 
+- **Phase 2:** lightweight application workflows for create/update listing draft and publish gating (`print_id` + required transactional fields).
+- **Phase 3:** minimal admin/seller API surface for listing lifecycle.
+- **Phase 4:** transactional integration with order/payment components and selective catalog read-through boundaries.
