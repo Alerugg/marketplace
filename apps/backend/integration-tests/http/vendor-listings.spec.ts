@@ -204,6 +204,68 @@ medusaIntegrationTestRunner({
         expect(response.data.listing.seller_note).toBe('updated note')
       })
 
+      it('rejects unknown fields in patch request body', async () => {
+        const response = await api.patch(
+          `/vendor/listings/${sellerAListingId}`,
+          {
+            unexpected_field: 'nope'
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
+      it('returns 404 for a missing listing', async () => {
+        const response = await api.get('/vendor/listings/listing_missing_123', {
+          headers: {
+            Authorization: `Bearer ${sellerA.token}`
+          },
+          validateStatus: () => true
+        })
+
+        expect(response.status).toBe(404)
+      })
+
+      it('filters listings by status for the authenticated seller', async () => {
+        await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: `print_active_${Date.now()}`,
+            status: 'active'
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            }
+          }
+        )
+
+        const response = await api.get('/vendor/listings?status=active', {
+          headers: {
+            Authorization: `Bearer ${sellerA.token}`
+          }
+        })
+
+        expect(response.status).toBe(200)
+        expect(response.data.listings.length).toBeGreaterThan(0)
+        expect(
+          response.data.listings.every((listing: any) => listing.seller_id === sellerA.sellerId)
+        ).toBe(true)
+        expect(
+          response.data.listings.every((listing: any) => listing.status === 'active')
+        ).toBe(true)
+        expect(
+          response.data.listings.some((listing: any) => listing.id === sellerBListingId)
+        ).toBe(false)
+      })
+
       it('rejects seller_id in patch request body', async () => {
         const response = await api.patch(
           `/vendor/listings/${sellerAListingId}`,
