@@ -6,8 +6,8 @@ medusaIntegrationTestRunner({
   inApp: true,
   env: {},
   testSuite: ({ api }) => {
-    describe('Ping', () => {
-      it('ping the server session endpoint', async () => {
+    describe('POST /auth/session', () => {
+      it('returns 200 for the backend smoke test', async () => {
         const response = await api.post('/auth/session')
         expect(response.status).toEqual(200)
       })
