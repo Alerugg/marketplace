@@ -3,20 +3,22 @@ import { z } from 'zod'
 import { applyAndAndOrOperators } from '@medusajs/medusa/api/utils/common-validators/common'
 import { createFindParams } from '@medusajs/medusa/api/utils/validators'
 
+const listingStatusEnum = z.enum([
+  'draft',
+  'active',
+  'reserved',
+  'sold',
+  'paused',
+  'archived'
+])
+
 const listingFilterableFields = z.object({
   id: z.union([z.string(), z.array(z.string())]).optional(),
   print_id: z.union([z.string(), z.array(z.string())]).optional(),
   seller_id: z.union([z.string(), z.array(z.string())]).optional(),
   condition_code: z.union([z.string(), z.array(z.string())]).optional(),
   currency_code: z.union([z.string(), z.array(z.string())]).optional(),
-  status: z
-    .union([
-      z.enum(['draft', 'active', 'reserved', 'sold', 'paused', 'archived']),
-      z.array(
-        z.enum(['draft', 'active', 'reserved', 'sold', 'paused', 'archived'])
-      )
-    ])
-    .optional()
+  status: z.union([listingStatusEnum, z.array(listingStatusEnum)]).optional()
 })
 
 export type VendorGetListingsParamsType = z.infer<typeof VendorGetListingsParams>
@@ -35,7 +37,7 @@ export const VendorCreateListing = z
     currency_code: z.string(),
     condition_code: z.string(),
     quantity_available: z.number().int(),
-    status: z.enum(['draft', 'active', 'reserved', 'sold', 'paused', 'archived']),
+    status: listingStatusEnum,
     seller_note: z.string().nullish(),
     photos: z.array(z.string()).nullish(),
     location_country: z.string().nullish(),
@@ -51,9 +53,7 @@ export const VendorUpdateListing = z
     currency_code: z.string().optional(),
     condition_code: z.string().optional(),
     quantity_available: z.number().int().optional(),
-    status: z
-      .enum(['draft', 'active', 'reserved', 'sold', 'paused', 'archived'])
-      .optional(),
+    status: listingStatusEnum.optional(),
     seller_note: z.string().nullish(),
     photos: z.array(z.string()).nullish(),
     location_country: z.string().nullish(),

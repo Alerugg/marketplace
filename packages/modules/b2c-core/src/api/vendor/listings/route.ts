@@ -21,10 +21,12 @@ export const POST = async (
     req.scope
   )
 
-  const listing = await listingModuleService.createListings({
+  const createPayload = {
     ...req.validatedBody,
     seller_id: seller.id
-  } as any)
+  }
+
+  const listing = await listingModuleService.createListings(createPayload as any)
 
   const listingData = await refetchEntity(
     'listing',
