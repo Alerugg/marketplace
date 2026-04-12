@@ -63,3 +63,57 @@ The listing model is centered on:
 - **Phase 2:** lightweight application workflows for create/update listing draft and publish gating (`print_id` + required transactional fields).
 - **Phase 3:** minimal admin/seller API surface for listing lifecycle.
 - **Phase 4:** transactional integration with order/payment components and selective catalog read-through boundaries.
+
+
+
+
+## PROJECT SNAPSHOT — 2026-04-12 (listing backend runtime validation)
+
+### Estado actual verificado
+
+- `yarn build` funciona correctamente en el monorepo.
+- `apps/backend/yarn db:migrate` funciona correctamente.
+- La migración del módulo `listing` corre correctamente en runtime:
+  - `MODULE: listing`
+  - `Migration20260410110000`
+- El smoke test HTTP base ya está alineado con una ruta real del backend y pasa:
+  - `apps/backend/integration-tests/http/health.spec.ts`
+- Se añadió cobertura de integración para vendor listings:
+  - `apps/backend/integration-tests/http/vendor-listings.spec.ts`
+- La cobertura validada en runtime incluye:
+  - create listing sin `seller_id` en request body
+  - rechazo de `status` inválido
+  - rechazo de `seller_id` en create body
+  - listado de listings del seller autenticado
+  - retrieve de listing propio
+  - patch de listing propio con campos permitidos
+  - rechazo de `seller_id` en patch body
+  - rechazo de acceso a listing de otro seller cuando aplica el seller scoping
+
+### Qué quedó realmente probado
+
+- El contrato endurecido del listing seller API está funcionando en tests de integración reales.
+- `seller_id` se inyecta server-side.
+- `seller_id` no es aceptado en create/update schema.
+- `status` está restringido a los valores permitidos.
+- La migración del dominio `listing` no está solo “presente”; también se ejecuta correctamente durante bootstrap de integración.
+
+### Qué sigue pendiente
+
+- No se ha iniciado Phase 2.
+- No se ha tocado storefront.
+- No se ha añadido integración remota de catálogo.
+- No se han tocado payments ni product flows fuera del alcance del listing backend.
+
+### Bloqueadores actuales
+
+- Ningún bloqueador crítico para cerrar esta fase de listing backend.
+- Persisten warnings no bloqueantes en tests/dev:
+  - `Local Event Bus installed`
+  - subscribers de Algolia no funcionales
+  - `Force exiting Jest`
+- Esos warnings no impidieron validar esta fase.
+
+### Siguiente paso recomendado
+
+Cerrar y mergear esta rama de tests/backend validation a `main`, y luego pasar a la siguiente fase estrictamente backend del listing domain, sin tocar storefront ni catálogo remoto todavía.
