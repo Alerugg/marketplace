@@ -1,61 +1,58 @@
-import { z } from 'zod'
+import { z } from "zod";
 
-import { applyAndAndOrOperators } from '@medusajs/medusa/api/utils/common-validators/common'
-import { createFindParams } from '@medusajs/medusa/api/utils/validators'
+import { applyAndAndOrOperators } from "@medusajs/medusa/api/utils/common-validators/common";
+import { createFindParams } from "@medusajs/medusa/api/utils/validators";
+import { LISTING_STATUSES } from "../../../modules/listing/constants";
 
-const listingStatusEnum = z.enum([
-  'draft',
-  'active',
-  'reserved',
-  'sold',
-  'paused',
-  'archived'
-])
+const listingStatusEnum = z.enum(LISTING_STATUSES);
 
 const listingFilterableFields = z.object({
   id: z.union([z.string(), z.array(z.string())]).optional(),
+  seller_id: z.union([z.string(), z.array(z.string())]).optional(),
   print_id: z.union([z.string(), z.array(z.string())]).optional(),
   condition_code: z.union([z.string(), z.array(z.string())]).optional(),
   currency_code: z.union([z.string(), z.array(z.string())]).optional(),
-  status: listingStatusEnum.optional()
-})
+  status: listingStatusEnum.optional(),
+});
 
-export type VendorGetListingsParamsType = z.infer<typeof VendorGetListingsParams>
+export type VendorGetListingsParamsType = z.infer<
+  typeof VendorGetListingsParams
+>;
 export const VendorGetListingsParams = createFindParams({
   limit: 20,
-  offset: 0
+  offset: 0,
 })
   .merge(listingFilterableFields)
-  .merge(applyAndAndOrOperators(listingFilterableFields))
+  .merge(applyAndAndOrOperators(listingFilterableFields));
 
-export type VendorCreateListingType = z.infer<typeof VendorCreateListing>
+export type VendorCreateListingType = z.infer<typeof VendorCreateListing>;
 export const VendorCreateListing = z
   .object({
     print_id: z.string(),
-    price_amount: z.number(),
+    price_amount: z.number().positive(),
     currency_code: z.string(),
     condition_code: z.string(),
-    quantity_available: z.number().int(),
+    quantity_available: z.number().int().nonnegative(),
     status: listingStatusEnum,
     seller_note: z.string().nullish(),
     photos: z.array(z.string()).nullish(),
     location_country: z.string().nullish(),
-    shipping_profile_id: z.string().nullish()
+    shipping_profile_id: z.string().nullish(),
   })
-  .strict()
+  .strict();
 
-export type VendorUpdateListingType = z.infer<typeof VendorUpdateListing>
+export type VendorUpdateListingType = z.infer<typeof VendorUpdateListing>;
 export const VendorUpdateListing = z
   .object({
     print_id: z.string().optional(),
-    price_amount: z.number().optional(),
+    price_amount: z.number().positive().optional(),
     currency_code: z.string().optional(),
     condition_code: z.string().optional(),
-    quantity_available: z.number().int().optional(),
+    quantity_available: z.number().int().nonnegative().optional(),
     status: listingStatusEnum.optional(),
     seller_note: z.string().nullish(),
     photos: z.array(z.string()).nullish(),
     location_country: z.string().nullish(),
-    shipping_profile_id: z.string().nullish()
+    shipping_profile_id: z.string().nullish(),
   })
-  .strict()
+  .strict();
