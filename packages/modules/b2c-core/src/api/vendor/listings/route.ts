@@ -7,7 +7,10 @@ import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
 
 import { LISTING_MODULE, ListingModuleService } from '../../../modules/listing'
 import { fetchSellerByAuthActorId } from '../../../shared/infra/http/utils'
-import { VendorCreateListingType } from './validators'
+import {
+  VendorCreateListing,
+  VendorCreateListingType
+} from './validators'
 
 export const POST = async (
   req: AuthenticatedMedusaRequest<VendorCreateListingType>,
@@ -21,8 +24,10 @@ export const POST = async (
     req.scope
   )
 
+  const validatedBody = VendorCreateListing.parse(req.body)
+
   const createPayload = {
-    ...req.validatedBody,
+    ...validatedBody,
     seller_id: seller.id
   }
 

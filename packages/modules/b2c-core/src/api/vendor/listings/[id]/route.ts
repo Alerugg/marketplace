@@ -5,7 +5,10 @@ import {
 } from '@medusajs/framework'
 
 import { LISTING_MODULE, ListingModuleService } from '../../../../modules/listing'
-import { VendorUpdateListingType } from '../validators'
+import {
+  VendorUpdateListing,
+  VendorUpdateListingType
+} from '../validators'
 
 export const GET = async (
   req: AuthenticatedMedusaRequest,
@@ -28,9 +31,11 @@ export const PATCH = async (
   const listingModuleService =
     req.scope.resolve<ListingModuleService>(LISTING_MODULE)
 
+  const validatedBody = VendorUpdateListing.parse(req.body)
+
   await listingModuleService.updateListings({
     id: req.params.id,
-    ...req.validatedBody
+    ...validatedBody
   } as any)
 
   const listing = await refetchEntity(

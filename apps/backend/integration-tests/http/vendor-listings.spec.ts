@@ -118,6 +118,44 @@ medusaIntegrationTestRunner({
         expect(response.data.listing.seller_id).toBe(sellerA.sellerId)
       })
 
+      it('rejects non-positive price_amount when creating listing', async () => {
+        const response = await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: `print_bad_price_${Date.now()}`,
+            price_amount: 0
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
+      it('rejects negative quantity_available when creating listing', async () => {
+        const response = await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: `print_bad_qty_${Date.now()}`,
+            quantity_available: -1
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
       it('rejects invalid status when creating listing', async () => {
         const response = await api.post(
           '/vendor/listings',
@@ -266,6 +304,40 @@ medusaIntegrationTestRunner({
         ).toBe(false)
       })
 
+      it('rejects non-positive price_amount in patch request body', async () => {
+        const response = await api.patch(
+          `/vendor/listings/${sellerAListingId}`,
+          {
+            price_amount: 0
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
+      it('rejects negative quantity_available in patch request body', async () => {
+        const response = await api.patch(
+          `/vendor/listings/${sellerAListingId}`,
+          {
+            quantity_available: -1
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
       it('rejects invalid status in patch request body', async () => {
         const response = await api.patch(
           `/vendor/listings/${sellerAListingId}`,
@@ -294,16 +366,15 @@ medusaIntegrationTestRunner({
         expect(response.status).toBe(400)
       })
 
-      it('ignores seller_id in list filter and still scopes to authenticated seller', async () => {
+      it('rejects seller_id in list filter', async () => {
         const response = await api.get('/vendor/listings?seller_id=seller_other', {
           headers: {
             Authorization: `Bearer ${sellerA.token}`
-          }
+          },
+          validateStatus: () => true
         })
 
-        expect(response.status).toBe(200)
-        expect(response.data.listings).toHaveLength(1)
-        expect(response.data.listings[0].id).toBe(sellerAListingId)
+        expect(response.status).toBe(400)
       })
 
       it('returns an empty list when authenticated seller has no listings for the requested status', async () => {
