@@ -294,6 +294,18 @@ medusaIntegrationTestRunner({
         expect(response.status).toBe(400)
       })
 
+      it('ignores seller_id in list filter and still scopes to authenticated seller', async () => {
+        const response = await api.get('/vendor/listings?seller_id=seller_other', {
+          headers: {
+            Authorization: `Bearer ${sellerA.token}`
+          }
+        })
+
+        expect(response.status).toBe(200)
+        expect(response.data.listings).toHaveLength(1)
+        expect(response.data.listings[0].id).toBe(sellerAListingId)
+      })
+
       it('returns an empty list when authenticated seller has no listings for the requested status', async () => {
         const response = await api.get('/vendor/listings?status=sold', {
           headers: {

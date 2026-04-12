@@ -15,12 +15,9 @@ const listingStatusEnum = z.enum([
 const listingFilterableFields = z.object({
   id: z.union([z.string(), z.array(z.string())]).optional(),
   print_id: z.union([z.string(), z.array(z.string())]).optional(),
-  seller_id: z.union([z.string(), z.array(z.string())]).optional(),
   condition_code: z.union([z.string(), z.array(z.string())]).optional(),
   currency_code: z.union([z.string(), z.array(z.string())]).optional(),
-  status: z
-    .union([listingStatusEnum, z.array(listingStatusEnum)])
-    .optional()
+  status: listingStatusEnum.optional()
 })
 
 export type VendorGetListingsParamsType = z.infer<typeof VendorGetListingsParams>
