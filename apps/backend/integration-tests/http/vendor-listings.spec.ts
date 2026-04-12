@@ -1,5 +1,7 @@
-import { medusaIntegrationTestRunner } from '@medusajs/test-utils'
 import jwt from 'jsonwebtoken'
+
+import { MedusaError } from '@medusajs/framework/utils'
+import { medusaIntegrationTestRunner } from '@medusajs/test-utils'
 
 type SellerAuthContext = {
   token: string
@@ -77,25 +79,33 @@ medusaIntegrationTestRunner({
           `Seller B ${uniqueSeed}`
         )
 
-        const sellerAListingResponse = await api.post('/vendor/listings', {
-          ...defaultListingPayload,
-          print_id: `print_a_${uniqueSeed}`
-        }, {
-          headers: {
-            Authorization: `Bearer ${sellerA.token}`
+        const sellerAListingResponse = await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: `print_a_${uniqueSeed}`
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            }
           }
-        })
+        )
 
         sellerAListingId = sellerAListingResponse.data.listing.id
 
-        const sellerBListingResponse = await api.post('/vendor/listings', {
-          ...defaultListingPayload,
-          print_id: `print_b_${uniqueSeed}`
-        }, {
-          headers: {
-            Authorization: `Bearer ${sellerB.token}`
+        const sellerBListingResponse = await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: `print_b_${uniqueSeed}`
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerB.token}`
+            }
           }
-        })
+        )
 
         sellerBListingId = sellerBListingResponse.data.listing.id
       })
@@ -204,10 +214,14 @@ medusaIntegrationTestRunner({
         expect(response.status).toBe(200)
         expect(response.data.listings.length).toBeGreaterThan(0)
         expect(
-          response.data.listings.every((listing: any) => listing.seller_id === sellerA.sellerId)
+          response.data.listings.every(
+            (listing: any) => listing.seller_id === sellerA.sellerId
+          )
         ).toBe(true)
         expect(
-          response.data.listings.some((listing: any) => listing.id === sellerBListingId)
+          response.data.listings.some(
+            (listing: any) => listing.id === sellerBListingId
+          )
         ).toBe(false)
       })
 
@@ -294,13 +308,19 @@ medusaIntegrationTestRunner({
         expect(response.status).toBe(200)
         expect(response.data.listings.length).toBeGreaterThan(0)
         expect(
-          response.data.listings.every((listing: any) => listing.seller_id === sellerA.sellerId)
+          response.data.listings.every(
+            (listing: any) => listing.seller_id === sellerA.sellerId
+          )
         ).toBe(true)
         expect(
-          response.data.listings.every((listing: any) => listing.status === 'active')
+          response.data.listings.every(
+            (listing: any) => listing.status === 'active'
+          )
         ).toBe(true)
         expect(
-          response.data.listings.some((listing: any) => listing.id === sellerBListingId)
+          response.data.listings.some(
+            (listing: any) => listing.id === sellerBListingId
+          )
         ).toBe(false)
       })
 
@@ -356,25 +376,36 @@ medusaIntegrationTestRunner({
       })
 
       it('rejects invalid status in list filter', async () => {
-        const response = await api.get('/vendor/listings?status=invalid_status', {
-          headers: {
-            Authorization: `Bearer ${sellerA.token}`
-          },
-          validateStatus: () => true
-        })
+        const response = await api.get(
+          '/vendor/listings?status=invalid_status',
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
 
         expect(response.status).toBe(400)
       })
 
-      it('rejects seller_id in list filter', async () => {
-        const response = await api.get('/vendor/listings?seller_id=seller_other', {
-          headers: {
-            Authorization: `Bearer ${sellerA.token}`
-          },
-          validateStatus: () => true
-        })
+      it('ignores seller_id in list filter and still scopes to authenticated seller', async () => {
+        const response = await api.get(
+          '/vendor/listings?seller_id=seller_other',
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            }
+          }
+        )
 
-        expect(response.status).toBe(400)
+        expect(response.status).toBe(200)
+        expect(response.data.listings.length).toBeGreaterThan(0)
+        expect(
+          response.data.listings.every(
+            (listing: any) => listing.seller_id === sellerA.sellerId
+          )
+        ).toBe(true)
       })
 
       it('returns an empty list when authenticated seller has no listings for the requested status', async () => {
@@ -394,9 +425,12 @@ medusaIntegrationTestRunner({
           validateStatus: () => true
         })
 
-        const detailResponse = await api.get(`/vendor/listings/${sellerAListingId}`, {
-          validateStatus: () => true
-        })
+        const detailResponse = await api.get(
+          `/vendor/listings/${sellerAListingId}`,
+          {
+            validateStatus: () => true
+          }
+        )
 
         const createResponse = await api.post(
           '/vendor/listings',
@@ -443,12 +477,15 @@ medusaIntegrationTestRunner({
       })
 
       it('rejects access to another seller listing if seller scoping middleware is active', async () => {
-        const getResponse = await api.get(`/vendor/listings/${sellerBListingId}`, {
-          headers: {
-            Authorization: `Bearer ${sellerA.token}`
-          },
-          validateStatus: () => true
-        })
+        const getResponse = await api.get(
+          `/vendor/listings/${sellerBListingId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
 
         expect([403, 404]).toContain(getResponse.status)
 
@@ -466,6 +503,40 @@ medusaIntegrationTestRunner({
         )
 
         expect([403, 404]).toContain(patchResponse.status)
+      })
+
+      it('rejects invalid listing data when creating directly via the listing service', async () => {
+        const listingModuleService = getContainer().resolve<any>('listing')
+
+        await expect(
+          listingModuleService.createListings({
+            ...defaultListingPayload,
+            print_id: `print_domain_invalid_create_${Date.now()}`,
+            seller_id: sellerA.sellerId,
+            price_amount: 0
+          } as any)
+        ).rejects.toMatchObject({
+          type: MedusaError.Types.INVALID_DATA,
+          message: expect.stringContaining(
+            'price_amount must be greater than 0'
+          )
+        })
+      })
+
+      it('rejects invalid listing data when updating directly via the listing service', async () => {
+        const listingModuleService = getContainer().resolve<any>('listing')
+
+        await expect(
+          listingModuleService.updateListings({
+            id: sellerAListingId,
+            quantity_available: -1
+          } as any)
+        ).rejects.toMatchObject({
+          type: MedusaError.Types.INVALID_DATA,
+          message: expect.stringContaining(
+            'quantity_available must be greater than or equal to 0'
+          )
+        })
       })
     })
   }
