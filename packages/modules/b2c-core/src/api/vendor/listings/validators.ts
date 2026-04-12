@@ -18,7 +18,9 @@ const listingFilterableFields = z.object({
   seller_id: z.union([z.string(), z.array(z.string())]).optional(),
   condition_code: z.union([z.string(), z.array(z.string())]).optional(),
   currency_code: z.union([z.string(), z.array(z.string())]).optional(),
-  status: z.union([listingStatusEnum, z.array(listingStatusEnum)]).optional()
+  status: z
+    .union([listingStatusEnum, z.array(listingStatusEnum)])
+    .optional()
 })
 
 export type VendorGetListingsParamsType = z.infer<typeof VendorGetListingsParams>
