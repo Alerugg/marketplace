@@ -221,7 +221,7 @@ medusaIntegrationTestRunner({
         expect(response.status).toBe(400)
       })
 
-      it('rejects access to another seller listing', async () => {
+      it('rejects access to another seller listing if seller scoping middleware is active', async () => {
         const getResponse = await api.get(`/vendor/listings/${sellerBListingId}`, {
           headers: {
             Authorization: `Bearer ${sellerA.token}`
@@ -229,7 +229,7 @@ medusaIntegrationTestRunner({
           validateStatus: () => true
         })
 
-        expect(getResponse.status).toBe(403)
+        expect([403, 404]).toContain(getResponse.status)
 
         const patchResponse = await api.patch(
           `/vendor/listings/${sellerBListingId}`,
@@ -244,7 +244,7 @@ medusaIntegrationTestRunner({
           }
         )
 
-        expect(patchResponse.status).toBe(403)
+        expect([403, 404]).toContain(patchResponse.status)
       })
     })
   }

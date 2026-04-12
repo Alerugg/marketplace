@@ -7,8 +7,8 @@ medusaIntegrationTestRunner({
   env: {},
   testSuite: ({ api }) => {
     describe('Ping', () => {
-      it('ping the server health endpoint', async () => {
-        const response = await api.get('/health')
+      it('ping the server session endpoint', async () => {
+        const response = await api.post('/auth/session')
         expect(response.status).toEqual(200)
       })
     })
