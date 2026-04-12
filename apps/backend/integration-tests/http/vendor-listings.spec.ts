@@ -266,6 +266,82 @@ medusaIntegrationTestRunner({
         ).toBe(false)
       })
 
+      it('rejects invalid status in patch request body', async () => {
+        const response = await api.patch(
+          `/vendor/listings/${sellerAListingId}`,
+          {
+            status: 'invalid_status'
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
+      it('rejects invalid status in list filter', async () => {
+        const response = await api.get('/vendor/listings?status=invalid_status', {
+          headers: {
+            Authorization: `Bearer ${sellerA.token}`
+          },
+          validateStatus: () => true
+        })
+
+        expect(response.status).toBe(400)
+      })
+
+      it('returns an empty list when authenticated seller has no listings for the requested status', async () => {
+        const response = await api.get('/vendor/listings?status=sold', {
+          headers: {
+            Authorization: `Bearer ${sellerA.token}`
+          }
+        })
+
+        expect(response.status).toBe(200)
+        expect(Array.isArray(response.data.listings)).toBe(true)
+        expect(response.data.listings.length).toBe(0)
+      })
+
+      it('requires authentication for vendor listings routes', async () => {
+        const listResponse = await api.get('/vendor/listings', {
+          validateStatus: () => true
+        })
+
+        const detailResponse = await api.get(`/vendor/listings/${sellerAListingId}`, {
+          validateStatus: () => true
+        })
+
+        const createResponse = await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: `print_no_auth_${Date.now()}`
+          },
+          {
+            validateStatus: () => true
+          }
+        )
+
+        const patchResponse = await api.patch(
+          `/vendor/listings/${sellerAListingId}`,
+          {
+            status: 'paused'
+          },
+          {
+            validateStatus: () => true
+          }
+        )
+
+        expect([401, 403]).toContain(listResponse.status)
+        expect([401, 403]).toContain(detailResponse.status)
+        expect([401, 403]).toContain(createResponse.status)
+        expect([401, 403]).toContain(patchResponse.status)
+      })
+
       it('rejects seller_id in patch request body', async () => {
         const response = await api.patch(
           `/vendor/listings/${sellerAListingId}`,
