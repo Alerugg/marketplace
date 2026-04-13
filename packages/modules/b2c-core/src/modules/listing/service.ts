@@ -2,7 +2,7 @@ import { MedusaError, MedusaService } from "@medusajs/framework/utils";
 import { z } from "zod";
 
 import { Listing } from "./models/listing";
-import { LISTING_STATUSES } from "./constants";
+import { LISTING_STATUSES, ListingStatus } from "./constants";
 
 const listingBaseValidationSchema = z.object({
   price_amount: z.number().positive("price_amount must be greater than 0"),
@@ -21,7 +21,7 @@ const listingCreateValidationSchema = listingBaseValidationSchema;
 const listingUpdateValidationSchema = listingBaseValidationSchema.partial();
 
 const validateListingStateInvariants = (entry: {
-  status: string;
+  status: ListingStatus;
   quantity_available: number;
 }) => {
   if (entry.status === "active" && entry.quantity_available === 0) {
@@ -39,9 +39,30 @@ const validateListingStateInvariants = (entry: {
   }
 };
 
+const ALLOWED_STATUS_TRANSITIONS: Record<ListingStatus, ListingStatus[]> = {
+  draft: ["draft", "active", "paused", "archived"],
+  active: ["active", "reserved", "sold", "paused", "archived"],
+  reserved: ["reserved", "active", "sold", "paused", "archived"],
+  sold: ["sold", "archived"],
+  paused: ["paused", "active", "archived"],
+  archived: ["archived"],
+};
+
 class ListingModuleService extends MedusaService({
   Listing,
 }) {
+  private assertStatusTransition = (
+    currentStatus: ListingStatus,
+    nextStatus: ListingStatus,
+  ) => {
+    if (!ALLOWED_STATUS_TRANSITIONS[currentStatus].includes(nextStatus)) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `invalid status transition from ${currentStatus} to ${nextStatus}`,
+      );
+    }
+  };
+
   private validateListingInput = (
     input: Record<string, unknown> | Record<string, unknown>[],
     schema:
@@ -77,6 +98,24 @@ class ListingModuleService extends MedusaService({
     }
 
     validateListingStateInvariants(validated.data);
+  };
+
+  private assertStockMutationAllowed = (entry: {
+    status: ListingStatus;
+    quantity_available: number;
+  }) => {
+    if (entry.status === "sold") {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "sold listings cannot be mutated",
+      );
+    }
+    if (entry.status === "archived") {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "archived listings cannot be mutated",
+      );
+    }
   };
 
   createListings = async (
@@ -115,6 +154,9 @@ class ListingModuleService extends MedusaService({
       }
 
       const listing = await this.retrieveListing(entry.id, undefined, sharedContext);
+      const currentStatus = listing.status as ListingStatus;
+      const nextStatus = (entry.status ?? listing.status) as ListingStatus;
+      this.assertStatusTransition(currentStatus, nextStatus);
 
       this.validateListingState({
         price_amount: entry.price_amount ?? listing.price_amount,
@@ -126,6 +168,84 @@ class ListingModuleService extends MedusaService({
 
     // @ts-expect-error updateListings exists on MedusaService generated methods
     return super.updateListings(data, sharedContext);
+  };
+
+  decrementListingQuantity = async (
+    data: { id: string; quantity: number; next_status?: ListingStatus },
+    sharedContext?: any,
+  ) => {
+    if (!Number.isInteger(data.quantity) || data.quantity <= 0) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "quantity must be an integer greater than 0",
+      );
+    }
+
+    const listing = await this.retrieveListing(data.id, undefined, sharedContext);
+    this.assertStockMutationAllowed({
+      status: listing.status as ListingStatus,
+      quantity_available: listing.quantity_available,
+    });
+
+    if (listing.quantity_available < data.quantity) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "insufficient quantity_available for decrement",
+      );
+    }
+
+    const quantity_available = listing.quantity_available - data.quantity;
+    const resolvedStatus =
+      data.next_status ?? (quantity_available === 0 ? "sold" : listing.status);
+
+    this.assertStatusTransition(
+      listing.status as ListingStatus,
+      resolvedStatus as ListingStatus,
+    );
+
+    this.validateListingState({
+      price_amount: listing.price_amount,
+      quantity_available,
+      status: resolvedStatus,
+    });
+
+    return this.updateListings(
+      {
+        id: data.id,
+        quantity_available,
+        status: resolvedStatus,
+      },
+      sharedContext,
+    );
+  };
+
+  reserveListing = async (id: string, sharedContext?: any) => {
+    const listing = await this.retrieveListing(id, undefined, sharedContext);
+    this.assertStatusTransition(listing.status as ListingStatus, "reserved");
+    this.validateListingState({
+      price_amount: listing.price_amount,
+      quantity_available: listing.quantity_available,
+      status: "reserved",
+    });
+    return this.updateListings({ id, status: "reserved" }, sharedContext);
+  };
+
+  sellListing = async (id: string, sharedContext?: any) => {
+    const listing = await this.retrieveListing(id, undefined, sharedContext);
+    this.assertStatusTransition(listing.status as ListingStatus, "sold");
+    this.validateListingState({
+      price_amount: listing.price_amount,
+      quantity_available: 0,
+      status: "sold",
+    });
+    return this.updateListings(
+      {
+        id,
+        quantity_available: 0,
+        status: "sold",
+      },
+      sharedContext,
+    );
   };
 }
 
