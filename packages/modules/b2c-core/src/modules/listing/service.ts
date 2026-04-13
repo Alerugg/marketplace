@@ -51,6 +51,28 @@ const ALLOWED_STATUS_TRANSITIONS: Record<ListingStatus, ListingStatus[]> = {
 class ListingModuleService extends MedusaService({
   Listing,
 }) {
+  private withLockedListingMutation = async <T>(
+    id: string,
+    mutator: (listing: any, context: any) => Promise<T>,
+    sharedContext?: any,
+  ): Promise<T> => {
+    return this.baseRepository_.transaction(async (transactionManager: any) => {
+      const context = {
+        ...(sharedContext ?? {}),
+        transactionManager,
+      };
+
+      const manager = this.baseRepository_.getActiveManager(context) as any;
+      await manager.getConnection().execute(
+        `SELECT id FROM "listing" WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
+        [id],
+      );
+
+      const listing = await this.retrieveListing(id, undefined, context);
+      return mutator(listing, context);
+    });
+  };
+
   private assertStatusTransition = (
     currentStatus: ListingStatus,
     nextStatus: ListingStatus,
@@ -181,68 +203,91 @@ class ListingModuleService extends MedusaService({
       );
     }
 
-    const listing = await this.retrieveListing(data.id, undefined, sharedContext);
-    this.assertStockMutationAllowed({
-      status: listing.status as ListingStatus,
-      quantity_available: listing.quantity_available,
-    });
+    return this.withLockedListingMutation(
+      data.id,
+      async (listing, context) => {
+        this.assertStockMutationAllowed({
+          status: listing.status as ListingStatus,
+          quantity_available: listing.quantity_available,
+        });
 
-    if (listing.quantity_available < data.quantity) {
-      throw new MedusaError(
-        MedusaError.Types.INVALID_DATA,
-        "insufficient quantity_available for decrement",
-      );
-    }
+        if (listing.quantity_available < data.quantity) {
+          throw new MedusaError(
+            MedusaError.Types.INVALID_DATA,
+            "insufficient quantity_available for decrement",
+          );
+        }
 
-    const quantity_available = listing.quantity_available - data.quantity;
-    const resolvedStatus =
-      data.next_status ?? (quantity_available === 0 ? "sold" : listing.status);
+        const quantity_available = listing.quantity_available - data.quantity;
+        const resolvedStatus =
+          data.next_status ?? (quantity_available === 0 ? "sold" : listing.status);
 
-    this.assertStatusTransition(
-      listing.status as ListingStatus,
-      resolvedStatus as ListingStatus,
-    );
+        this.assertStatusTransition(
+          listing.status as ListingStatus,
+          resolvedStatus as ListingStatus,
+        );
 
-    this.validateListingState({
-      price_amount: listing.price_amount,
-      quantity_available,
-      status: resolvedStatus,
-    });
+        this.validateListingState({
+          price_amount: listing.price_amount,
+          quantity_available,
+          status: resolvedStatus,
+        });
 
-    return this.updateListings(
-      {
-        id: data.id,
-        quantity_available,
-        status: resolvedStatus,
+        return this.updateListings(
+          {
+            id: data.id,
+            quantity_available,
+            status: resolvedStatus,
+          },
+          context,
+        );
       },
       sharedContext,
     );
   };
 
   reserveListing = async (id: string, sharedContext?: any) => {
-    const listing = await this.retrieveListing(id, undefined, sharedContext);
-    this.assertStatusTransition(listing.status as ListingStatus, "reserved");
-    this.validateListingState({
-      price_amount: listing.price_amount,
-      quantity_available: listing.quantity_available,
-      status: "reserved",
-    });
-    return this.updateListings({ id, status: "reserved" }, sharedContext);
+    return this.withLockedListingMutation(
+      id,
+      async (listing, context) => {
+        this.assertStockMutationAllowed({
+          status: listing.status as ListingStatus,
+          quantity_available: listing.quantity_available,
+        });
+        this.assertStatusTransition(listing.status as ListingStatus, "reserved");
+        this.validateListingState({
+          price_amount: listing.price_amount,
+          quantity_available: listing.quantity_available,
+          status: "reserved",
+        });
+        return this.updateListings({ id, status: "reserved" }, context);
+      },
+      sharedContext,
+    );
   };
 
   sellListing = async (id: string, sharedContext?: any) => {
-    const listing = await this.retrieveListing(id, undefined, sharedContext);
-    this.assertStatusTransition(listing.status as ListingStatus, "sold");
-    this.validateListingState({
-      price_amount: listing.price_amount,
-      quantity_available: 0,
-      status: "sold",
-    });
-    return this.updateListings(
-      {
-        id,
-        quantity_available: 0,
-        status: "sold",
+    return this.withLockedListingMutation(
+      id,
+      async (listing, context) => {
+        this.assertStockMutationAllowed({
+          status: listing.status as ListingStatus,
+          quantity_available: listing.quantity_available,
+        });
+        this.assertStatusTransition(listing.status as ListingStatus, "sold");
+        this.validateListingState({
+          price_amount: listing.price_amount,
+          quantity_available: 0,
+          status: "sold",
+        });
+        return this.updateListings(
+          {
+            id,
+            quantity_available: 0,
+            status: "sold",
+          },
+          context,
+        );
       },
       sharedContext,
     );
