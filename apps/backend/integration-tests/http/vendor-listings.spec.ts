@@ -185,6 +185,47 @@ medusaIntegrationTestRunner({
         expect(response.status).toBe(400)
       })
 
+
+      it('rejects creating an active listing with zero quantity_available', async () => {
+        const response = await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: `print_active_zero_${Date.now()}`,
+            status: 'active',
+            quantity_available: 0
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
+      it('rejects creating a sold listing with positive quantity_available', async () => {
+        const response = await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: `print_sold_positive_${Date.now()}`,
+            status: 'sold',
+            quantity_available: 1
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
       it('rejects seller_id in create request body', async () => {
         const response = await api.post(
           '/vendor/listings',
@@ -375,6 +416,71 @@ medusaIntegrationTestRunner({
         expect(response.status).toBe(400)
       })
 
+
+      it('rejects patching listing to active when resulting quantity_available is 0', async () => {
+        const createDraftWithZeroQuantityResponse = await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: `print_patch_active_zero_${Date.now()}`,
+            status: 'draft',
+            quantity_available: 0
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            }
+          }
+        )
+
+        const response = await api.patch(
+          `/vendor/listings/${createDraftWithZeroQuantityResponse.data.listing.id}`,
+          {
+            status: 'active'
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
+      it('rejects patching listing to sold when resulting quantity_available is positive', async () => {
+        const createActiveListingResponse = await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: `print_patch_sold_positive_${Date.now()}`,
+            status: 'active',
+            quantity_available: 2
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            }
+          }
+        )
+
+        const response = await api.patch(
+          `/vendor/listings/${createActiveListingResponse.data.listing.id}`,
+          {
+            status: 'sold'
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
       it('rejects invalid status in list filter', async () => {
         const response = await api.get(
           '/vendor/listings?status=invalid_status',
@@ -523,6 +629,26 @@ medusaIntegrationTestRunner({
         })
       })
 
+
+      it('rejects invalid status and quantity invariant when creating directly via the listing service', async () => {
+        const listingModuleService = getContainer().resolve<any>('listing')
+
+        await expect(
+          listingModuleService.createListings({
+            ...defaultListingPayload,
+            print_id: `print_domain_invalid_invariant_create_${Date.now()}`,
+            seller_id: sellerA.sellerId,
+            status: 'active',
+            quantity_available: 0
+          } as any)
+        ).rejects.toMatchObject({
+          type: MedusaError.Types.INVALID_DATA,
+          message: expect.stringContaining(
+            'active listings must have quantity_available greater than 0'
+          )
+        })
+      })
+
       it('rejects invalid listing data when updating directly via the listing service', async () => {
         const listingModuleService = getContainer().resolve<any>('listing')
 
@@ -535,6 +661,31 @@ medusaIntegrationTestRunner({
           type: MedusaError.Types.INVALID_DATA,
           message: expect.stringContaining(
             'quantity_available must be greater than or equal to 0'
+          )
+        })
+      })
+
+
+      it('rejects invalid status and quantity invariant when updating directly via the listing service', async () => {
+        const listingModuleService = getContainer().resolve<any>('listing')
+
+        const draftWithZeroQuantity = await listingModuleService.createListings({
+          ...defaultListingPayload,
+          print_id: `print_domain_invalid_invariant_update_${Date.now()}`,
+          seller_id: sellerA.sellerId,
+          status: 'draft',
+          quantity_available: 0
+        } as any)
+
+        await expect(
+          listingModuleService.updateListings({
+            id: draftWithZeroQuantity.id,
+            status: 'active'
+          } as any)
+        ).rejects.toMatchObject({
+          type: MedusaError.Types.INVALID_DATA,
+          message: expect.stringContaining(
+            'active listings must have quantity_available greater than 0'
           )
         })
       })
