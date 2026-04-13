@@ -23,12 +23,12 @@ const listingUpdateValidationSchema = listingBaseValidationSchema.partial();
 class ListingModuleService extends MedusaService({
   Listing,
 }) {
-  private validateListingInput(
+  private validateListingInput = (
     input: Record<string, unknown> | Record<string, unknown>[],
     schema:
       | typeof listingCreateValidationSchema
       | typeof listingUpdateValidationSchema,
-  ) {
+  ) => {
     const entries = Array.isArray(input) ? input : [input];
 
     for (const entry of entries) {
@@ -41,25 +41,25 @@ class ListingModuleService extends MedusaService({
         );
       }
     }
-  }
+  };
 
-  async createListings(
+  createListings = async (
     data: Record<string, unknown> | Record<string, unknown>[],
     sharedContext?: any,
-  ) {
+  ) => {
     this.validateListingInput(data, listingCreateValidationSchema);
     // @ts-expect-error createListings exists on MedusaService generated methods
     return super.createListings(data, sharedContext);
-  }
+  };
 
-  async updateListings(
+  updateListings = async (
     data: Record<string, unknown> | Record<string, unknown>[],
     sharedContext?: any,
-  ) {
+  ) => {
     this.validateListingInput(data, listingUpdateValidationSchema);
     // @ts-expect-error updateListings exists on MedusaService generated methods
     return super.updateListings(data, sharedContext);
-  }
+  };
 }
 
 export default ListingModuleService;
