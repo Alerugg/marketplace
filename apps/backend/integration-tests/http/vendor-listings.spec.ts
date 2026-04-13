@@ -689,6 +689,109 @@ medusaIntegrationTestRunner({
           )
         })
       })
+
+      it('rejects invalid listing status transitions directly via listing service', async () => {
+        const listingModuleService = getContainer().resolve<any>('listing')
+
+        const soldListing = await listingModuleService.createListings({
+          ...defaultListingPayload,
+          print_id: `print_domain_transition_invalid_${Date.now()}`,
+          seller_id: sellerA.sellerId,
+          status: 'sold',
+          quantity_available: 0
+        } as any)
+
+        await expect(
+          listingModuleService.updateListings({
+            id: soldListing.id,
+            status: 'active'
+          } as any)
+        ).rejects.toMatchObject({
+          type: MedusaError.Types.INVALID_DATA,
+          message: expect.stringContaining(
+            'invalid status transition from sold to active'
+          )
+        })
+      })
+
+      it('rejects decrementing active listing below zero via listing service', async () => {
+        const listingModuleService = getContainer().resolve<any>('listing')
+
+        const activeListing = await listingModuleService.createListings({
+          ...defaultListingPayload,
+          print_id: `print_domain_decrement_insufficient_${Date.now()}`,
+          seller_id: sellerA.sellerId,
+          status: 'active',
+          quantity_available: 1
+        } as any)
+
+        await expect(
+          listingModuleService.decrementListingQuantity({
+            id: activeListing.id,
+            quantity: 2
+          })
+        ).rejects.toMatchObject({
+          type: MedusaError.Types.INVALID_DATA,
+          message: expect.stringContaining(
+            'insufficient quantity_available for decrement'
+          )
+        })
+      })
+
+      it('marks listing sold when quantity is decremented to zero and rejects repeated decrement', async () => {
+        const listingModuleService = getContainer().resolve<any>('listing')
+
+        const activeListing = await listingModuleService.createListings({
+          ...defaultListingPayload,
+          print_id: `print_domain_decrement_to_zero_${Date.now()}`,
+          seller_id: sellerA.sellerId,
+          status: 'active',
+          quantity_available: 1
+        } as any)
+
+        await listingModuleService.decrementListingQuantity({
+          id: activeListing.id,
+          quantity: 1
+        })
+
+        const updated = await listingModuleService.retrieveListing(activeListing.id)
+        expect(updated.quantity_available).toBe(0)
+        expect(updated.status).toBe('sold')
+
+        await expect(
+          listingModuleService.decrementListingQuantity({
+            id: activeListing.id,
+            quantity: 1
+          })
+        ).rejects.toMatchObject({
+          type: MedusaError.Types.INVALID_DATA,
+          message: expect.stringContaining('sold listings cannot be mutated')
+        })
+      })
+
+      it('rejects reactivating paused listing when quantity_available is zero', async () => {
+        const listingModuleService = getContainer().resolve<any>('listing')
+
+        const pausedListing = await listingModuleService.createListings({
+          ...defaultListingPayload,
+          print_id: `print_domain_reactivate_zero_${Date.now()}`,
+          seller_id: sellerA.sellerId,
+          status: 'paused',
+          quantity_available: 0
+        } as any)
+
+        await expect(
+          listingModuleService.updateListings({
+            id: pausedListing.id,
+            status: 'active'
+          } as any)
+        ).rejects.toMatchObject({
+          type: MedusaError.Types.INVALID_DATA,
+          message: expect.stringContaining(
+            'active listings must have quantity_available greater than 0'
+          )
+        })
+      })
     })
   }
 })
