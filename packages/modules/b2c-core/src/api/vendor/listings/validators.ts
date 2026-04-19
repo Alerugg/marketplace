@@ -5,6 +5,15 @@ import { createFindParams } from "@medusajs/medusa/api/utils/validators";
 import { LISTING_STATUSES } from "../../../modules/listing/constants";
 
 const listingStatusEnum = z.enum(LISTING_STATUSES);
+const requiredPrintIdSchema = z
+  .string({
+    required_error: "print_id is required",
+    invalid_type_error: "print_id is required",
+  })
+  .transform((value) => value.trim())
+  .refine((value) => value.length > 0, {
+    message: "print_id is required",
+  });
 
 const listingFilterableFields = z.object({
   id: z.union([z.string(), z.array(z.string())]).optional(),
@@ -28,7 +37,7 @@ export const VendorGetListingsParams = createFindParams({
 export type VendorCreateListingType = z.infer<typeof VendorCreateListing>;
 export const VendorCreateListing = z
   .object({
-    print_id: z.string().trim().min(1, "print_id is required"),
+    print_id: requiredPrintIdSchema,
     price_amount: z.number().positive(),
     currency_code: z.string(),
     condition_code: z.string(),
@@ -55,4 +64,13 @@ export const VendorUpdateListing = z
     location_country: z.string().nullish(),
     shipping_profile_id: z.string().nullish(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (Object.prototype.hasOwnProperty.call(value, "print_id")) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "print_id cannot be updated for an existing listing",
+        path: ["print_id"],
+      });
+    }
+  });
