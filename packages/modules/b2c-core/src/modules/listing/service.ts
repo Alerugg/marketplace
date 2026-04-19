@@ -31,8 +31,8 @@ const listingIdentityValidationSchema = z.object({
 
 const listingCreateValidationSchema = listingBaseValidationSchema.merge(
   listingIdentityValidationSchema,
-);
-const listingUpdateValidationSchema = listingBaseValidationSchema.partial();
+).strict();
+const listingUpdateValidationSchema = listingBaseValidationSchema.partial().strict();
 
 const validateListingStateInvariants = (entry: {
   status: ListingStatus;
@@ -140,6 +140,16 @@ class ListingModuleService extends MedusaService({
 
     const entries = Array.isArray(data) ? data : [data];
     for (const entry of entries) {
+      if (
+        typeof entry.print_id !== "string" ||
+        entry.print_id.trim().length === 0
+      ) {
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "print_id is required",
+        );
+      }
+
       this.validateListingState({
         price_amount: entry.price_amount,
         quantity_available: entry.quantity_available,
@@ -160,7 +170,7 @@ class ListingModuleService extends MedusaService({
     const entries = Array.isArray(data) ? data : [data];
 
     for (const entry of entries) {
-      if (Object.prototype.hasOwnProperty.call(entry, "print_id")) {
+      if ("print_id" in entry) {
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,
           "print_id cannot be updated for an existing listing",
