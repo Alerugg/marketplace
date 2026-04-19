@@ -31,8 +31,8 @@ const listingIdentityValidationSchema = z.object({
 
 const listingCreateValidationSchema = listingBaseValidationSchema.merge(
   listingIdentityValidationSchema,
-).strict();
-const listingUpdateValidationSchema = listingBaseValidationSchema.partial().strict();
+);
+const listingUpdateValidationSchema = listingBaseValidationSchema.partial();
 
 const validateListingStateInvariants = (entry: {
   status: ListingStatus;
@@ -65,6 +65,31 @@ const ALLOWED_STATUS_TRANSITIONS: Record<ListingStatus, ListingStatus[]> = {
 class ListingModuleService extends MedusaService({
   Listing,
 }) {
+  constructor(...args: any[]) {
+    super(...args);
+
+    const internalListingService = this.__container__.listingService;
+
+    const baseCreate = internalListingService.create.bind(internalListingService);
+    const baseUpdate = internalListingService.update.bind(internalListingService);
+
+    internalListingService.create = async (
+      data: Record<string, unknown> | Record<string, unknown>[],
+      sharedContext?: any,
+    ) => {
+      this.validateCreateListingsInput(data);
+      return baseCreate(data, sharedContext);
+    };
+
+    internalListingService.update = async (
+      data: Record<string, unknown> | Record<string, unknown>[],
+      sharedContext?: any,
+    ) => {
+      await this.validateUpdateListingsInput(data, sharedContext);
+      return baseUpdate(data, sharedContext);
+    };
+  }
+
   private assertStatusTransition = (
     currentStatus: ListingStatus,
     nextStatus: ListingStatus,
@@ -102,7 +127,7 @@ class ListingModuleService extends MedusaService({
     quantity_available: unknown;
     status: unknown;
   }) => {
-    const validated = listingCreateValidationSchema.safeParse(entry);
+    const validated = listingBaseValidationSchema.safeParse(entry);
 
     if (!validated.success) {
       throw new MedusaError(
@@ -132,10 +157,9 @@ class ListingModuleService extends MedusaService({
     }
   };
 
-  async createListings(
+  private validateCreateListingsInput = (
     data: Record<string, unknown> | Record<string, unknown>[],
-    sharedContext?: any,
-  ) {
+  ) => {
     this.validateListingInput(data, listingCreateValidationSchema);
 
     const entries = Array.isArray(data) ? data : [data];
@@ -156,20 +180,19 @@ class ListingModuleService extends MedusaService({
         status: entry.status,
       });
     }
+  };
 
-    // @ts-expect-error createListings exists on MedusaService generated methods
-    return super.createListings(data, sharedContext);
-  }
-
-  async updateListings(
+  private validateUpdateListingsInput = async (
     data: Record<string, unknown> | Record<string, unknown>[],
     sharedContext?: any,
-  ) {
-    this.validateListingInput(data, listingUpdateValidationSchema);
-
+  ) => {
     const entries = Array.isArray(data) ? data : [data];
 
     for (const entry of entries) {
+      const { id, ...updateInput } = entry;
+
+      this.validateListingInput(updateInput, listingUpdateValidationSchema);
+
       if ("print_id" in entry) {
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,
@@ -177,14 +200,14 @@ class ListingModuleService extends MedusaService({
         );
       }
 
-      if (!entry.id || typeof entry.id !== "string") {
+      if (!id || typeof id !== "string") {
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,
           "id is required for listing updates",
         );
       }
 
-      const listing = await this.retrieveListing(entry.id, undefined, sharedContext);
+      const listing = await this.retrieveListing(id, undefined, sharedContext);
       const currentStatus = listing.status as ListingStatus;
       const nextStatus = (entry.status ?? listing.status) as ListingStatus;
       this.assertStatusTransition(currentStatus, nextStatus);
@@ -196,10 +219,7 @@ class ListingModuleService extends MedusaService({
         status: entry.status ?? listing.status,
       });
     }
-
-    // @ts-expect-error updateListings exists on MedusaService generated methods
-    return super.updateListings(data, sharedContext);
-  }
+  };
 
   decrementListingQuantity = async (
     data: { id: string; quantity: number; next_status?: ListingStatus },
