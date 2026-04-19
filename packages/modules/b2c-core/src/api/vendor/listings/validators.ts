@@ -28,7 +28,7 @@ export const VendorGetListingsParams = createFindParams({
 export type VendorCreateListingType = z.infer<typeof VendorCreateListing>;
 export const VendorCreateListing = z
   .object({
-    print_id: z.string().trim().min(1),
+    print_id: z.string().trim().min(1, "print_id is required"),
     price_amount: z.number().positive(),
     currency_code: z.string(),
     condition_code: z.string(),
@@ -44,6 +44,7 @@ export const VendorCreateListing = z
 export type VendorUpdateListingType = z.infer<typeof VendorUpdateListing>;
 export const VendorUpdateListing = z
   .object({
+    print_id: z.never().optional(),
     price_amount: z.number().positive().optional(),
     currency_code: z.string().optional(),
     condition_code: z.string().optional(),
