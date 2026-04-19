@@ -53,7 +53,7 @@ export const VendorCreateListing = z
 export type VendorUpdateListingType = z.infer<typeof VendorUpdateListing>;
 export const VendorUpdateListing = z
   .object({
-    print_id: z.string().optional(),
+    print_id: z.never().optional(),
     price_amount: z.number().positive().optional(),
     currency_code: z.string().optional(),
     condition_code: z.string().optional(),
