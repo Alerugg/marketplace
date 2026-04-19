@@ -166,6 +166,24 @@ medusaIntegrationTestRunner({
         expect(response.status).toBe(400)
       })
 
+      it('rejects blank print_id when creating listing', async () => {
+        const response = await api.post(
+          '/vendor/listings',
+          {
+            ...defaultListingPayload,
+            print_id: '   '
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
       it('rejects invalid status when creating listing', async () => {
         const response = await api.post(
           '/vendor/listings',
@@ -481,6 +499,23 @@ medusaIntegrationTestRunner({
         expect(response.status).toBe(400)
       })
 
+      it('rejects changing print_id of an existing listing', async () => {
+        const response = await api.patch(
+          `/vendor/listings/${sellerAListingId}`,
+          {
+            print_id: `print_retarget_${Date.now()}`
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            },
+            validateStatus: () => true
+          }
+        )
+
+        expect(response.status).toBe(400)
+      })
+
       it('rejects invalid status in list filter', async () => {
         const response = await api.get(
           '/vendor/listings?status=invalid_status',
@@ -661,6 +696,22 @@ medusaIntegrationTestRunner({
           type: MedusaError.Types.INVALID_DATA,
           message: expect.stringContaining(
             'quantity_available must be greater than or equal to 0'
+          )
+        })
+      })
+
+      it('rejects changing print_id directly via listing service update', async () => {
+        const listingModuleService = getContainer().resolve<any>('listing')
+
+        await expect(
+          listingModuleService.updateListings({
+            id: sellerAListingId,
+            print_id: `print_retarget_service_${Date.now()}`
+          } as any)
+        ).rejects.toMatchObject({
+          type: MedusaError.Types.INVALID_DATA,
+          message: expect.stringContaining(
+            'print_id cannot be updated for an existing listing'
           )
         })
       })
