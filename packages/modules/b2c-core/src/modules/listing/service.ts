@@ -68,7 +68,9 @@ class ListingModuleService extends MedusaService({
   constructor(...args: any[]) {
     super(...args);
 
-    const parentPrototype = Object.getPrototypeOf(ListingModuleService.prototype);
+    const parentPrototype = Object.getPrototypeOf(
+      ListingModuleService.prototype,
+    );
     const parentCreateListings = parentPrototype.createListings.bind(this);
     const parentUpdateListings = parentPrototype.updateListings.bind(this);
 
@@ -231,7 +233,11 @@ class ListingModuleService extends MedusaService({
       );
     }
 
-    const listing = await this.retrieveListing(data.id, undefined, sharedContext);
+    const listing = await this.retrieveListing(
+      data.id,
+      undefined,
+      sharedContext,
+    );
     this.assertStockMutationAllowed({
       status: listing.status as ListingStatus,
       quantity_available: listing.quantity_available,
@@ -278,6 +284,39 @@ class ListingModuleService extends MedusaService({
       status: "reserved",
     });
     return this.updateListings({ id, status: "reserved" }, sharedContext);
+  };
+
+  activateListing = async (id: string, sharedContext?: any) => {
+    const listing = await this.retrieveListing(id, undefined, sharedContext);
+    this.assertStatusTransition(listing.status as ListingStatus, "active");
+    this.validateListingState({
+      price_amount: listing.price_amount,
+      quantity_available: listing.quantity_available,
+      status: "active",
+    });
+    return this.updateListings({ id, status: "active" }, sharedContext);
+  };
+
+  pauseListing = async (id: string, sharedContext?: any) => {
+    const listing = await this.retrieveListing(id, undefined, sharedContext);
+    this.assertStatusTransition(listing.status as ListingStatus, "paused");
+    this.validateListingState({
+      price_amount: listing.price_amount,
+      quantity_available: listing.quantity_available,
+      status: "paused",
+    });
+    return this.updateListings({ id, status: "paused" }, sharedContext);
+  };
+
+  archiveListing = async (id: string, sharedContext?: any) => {
+    const listing = await this.retrieveListing(id, undefined, sharedContext);
+    this.assertStatusTransition(listing.status as ListingStatus, "archived");
+    this.validateListingState({
+      price_amount: listing.price_amount,
+      quantity_available: listing.quantity_available,
+      status: "archived",
+    });
+    return this.updateListings({ id, status: "archived" }, sharedContext);
   };
 
   sellListing = async (id: string, sharedContext?: any) => {
