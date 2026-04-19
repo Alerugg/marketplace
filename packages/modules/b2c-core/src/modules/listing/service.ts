@@ -68,25 +68,24 @@ class ListingModuleService extends MedusaService({
   constructor(...args: any[]) {
     super(...args);
 
-    const internalListingService = this.__container__.listingService;
+    const parentPrototype = Object.getPrototypeOf(ListingModuleService.prototype);
+    const parentCreateListings = parentPrototype.createListings.bind(this);
+    const parentUpdateListings = parentPrototype.updateListings.bind(this);
 
-    const baseCreate = internalListingService.create.bind(internalListingService);
-    const baseUpdate = internalListingService.update.bind(internalListingService);
-
-    internalListingService.create = async (
+    this.createListings = async (
       data: Record<string, unknown> | Record<string, unknown>[],
       sharedContext?: any,
     ) => {
       this.validateCreateListingsInput(data);
-      return baseCreate(data, sharedContext);
+      return parentCreateListings(data, sharedContext);
     };
 
-    internalListingService.update = async (
+    this.updateListings = async (
       data: Record<string, unknown> | Record<string, unknown>[],
       sharedContext?: any,
     ) => {
       await this.validateUpdateListingsInput(data, sharedContext);
-      return baseUpdate(data, sharedContext);
+      return parentUpdateListings(data, sharedContext);
     };
   }
 
