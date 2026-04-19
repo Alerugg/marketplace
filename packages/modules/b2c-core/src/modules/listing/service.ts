@@ -251,7 +251,6 @@ class ListingModuleService extends MedusaService({
       undefined,
       sharedContext,
     );
-    const listing = await this.retrieveListing(data.id, undefined, sharedContext);
     this.assertStockMutationAllowed({
       status: listing.status as ListingStatus,
       quantity_available: listing.quantity_available,
