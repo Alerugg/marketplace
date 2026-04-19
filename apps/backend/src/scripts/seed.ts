@@ -1,6 +1,5 @@
 import { ExecArgs } from '@medusajs/framework/types'
 import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
-
 import {
   createConfigurationRules,
   createDefaultCommissionLevel,
@@ -46,12 +45,20 @@ export default async function seedMarketplaceData({ container }: ExecArgs) {
     seller.id,
     salesChannel.id
   )
-  logger.info('Creating service zone...')
-  const serviceZone = await createServiceZoneForFulfillmentSet(
-    container,
-    seller.id,
-    stockLocation.fulfillment_sets[0].id
+const fulfillmentSetId = stockLocation.fulfillment_sets?.[0]?.id
+
+if (!fulfillmentSetId) {
+  throw new Error(
+    `Seller stock location ${stockLocation.id} has no fulfillment set`
   )
+}
+
+logger.info('Creating service zone...')
+const serviceZone = await createServiceZoneForFulfillmentSet(
+  container,
+  seller.id,
+  fulfillmentSetId
+)
   logger.info('Creating seller shipping option...')
   await createSellerShippingOption(
     container,
