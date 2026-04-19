@@ -16,7 +16,14 @@ export const POST = async (
   const listingModuleService =
     req.scope.resolve<ListingModuleService>(LISTING_MODULE);
 
-  await listingModuleService.sellListing(req.params.id);
+  const currentListing = await refetchEntity(
+    "listing",
+    req.params.id,
+    req.scope,
+    req.queryConfig.fields,
+  );
+
+  await listingModuleService.sellListing(currentListing.id);
 
   const listing = await refetchEntity(
     "listing",
