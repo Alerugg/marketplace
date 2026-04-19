@@ -126,7 +126,7 @@ class ListingModuleService extends MedusaService({
     quantity_available: unknown;
     status: unknown;
   }) => {
-    const validated = listingCreateValidationSchema.safeParse(entry);
+    const validated = listingBaseValidationSchema.safeParse(entry);
 
     if (!validated.success) {
       throw new MedusaError(
