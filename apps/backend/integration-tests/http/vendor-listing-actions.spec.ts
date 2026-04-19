@@ -194,7 +194,7 @@ medusaIntegrationTestRunner({
           }
         )
 
-        expect(response.status).toBe(404)
+        expect(response.status).toBe(403)
       })
 
       it('archives own listing', async () => {
@@ -241,6 +241,16 @@ medusaIntegrationTestRunner({
       })
 
       it('sell sets quantity_available to 0 and status sold', async () => {
+        await api.post(
+          `/vendor/listings/${sellerAListingId}/activate`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`
+            }
+          }
+        )
+
         const response = await api.post(
           `/vendor/listings/${sellerAListingId}/sell`,
           {},
