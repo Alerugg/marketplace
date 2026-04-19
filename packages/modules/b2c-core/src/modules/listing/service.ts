@@ -18,7 +18,15 @@ const listingBaseValidationSchema = z.object({
 });
 
 const listingIdentityValidationSchema = z.object({
-  print_id: z.string().trim().min(1, "print_id is required"),
+  print_id: z
+    .string({
+      required_error: "print_id is required",
+      invalid_type_error: "print_id is required",
+    })
+    .transform((value) => value.trim())
+    .refine((value) => value.length > 0, {
+      message: "print_id is required",
+    }),
 });
 
 const listingCreateValidationSchema = listingBaseValidationSchema.merge(
@@ -124,10 +132,10 @@ class ListingModuleService extends MedusaService({
     }
   };
 
-  createListings = async (
+  async createListings(
     data: Record<string, unknown> | Record<string, unknown>[],
     sharedContext?: any,
-  ) => {
+  ) {
     this.validateListingInput(data, listingCreateValidationSchema);
 
     const entries = Array.isArray(data) ? data : [data];
@@ -141,18 +149,18 @@ class ListingModuleService extends MedusaService({
 
     // @ts-expect-error createListings exists on MedusaService generated methods
     return super.createListings(data, sharedContext);
-  };
+  }
 
-  updateListings = async (
+  async updateListings(
     data: Record<string, unknown> | Record<string, unknown>[],
     sharedContext?: any,
-  ) => {
+  ) {
     this.validateListingInput(data, listingUpdateValidationSchema);
 
     const entries = Array.isArray(data) ? data : [data];
 
     for (const entry of entries) {
-      if ("print_id" in entry) {
+      if (Object.prototype.hasOwnProperty.call(entry, "print_id")) {
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,
           "print_id cannot be updated for an existing listing",
@@ -181,7 +189,7 @@ class ListingModuleService extends MedusaService({
 
     // @ts-expect-error updateListings exists on MedusaService generated methods
     return super.updateListings(data, sharedContext);
-  };
+  }
 
   decrementListingQuantity = async (
     data: { id: string; quantity: number; next_status?: ListingStatus },
