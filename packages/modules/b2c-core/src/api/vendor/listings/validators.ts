@@ -5,6 +5,7 @@ import { createFindParams } from "@medusajs/medusa/api/utils/validators";
 import { LISTING_STATUSES } from "../../../modules/listing/constants";
 
 const listingStatusEnum = z.enum(LISTING_STATUSES);
+
 const requiredPrintIdSchema = z
   .string({
     required_error: "print_id is required",
@@ -27,6 +28,7 @@ const listingFilterableFields = z.object({
 export type VendorGetListingsParamsType = z.infer<
   typeof VendorGetListingsParams
 >;
+
 export const VendorGetListingsParams = createFindParams({
   limit: 20,
   offset: 0,
@@ -35,6 +37,7 @@ export const VendorGetListingsParams = createFindParams({
   .merge(applyAndAndOrOperators(listingFilterableFields));
 
 export type VendorCreateListingType = z.infer<typeof VendorCreateListing>;
+
 export const VendorCreateListing = z
   .object({
     print_id: requiredPrintIdSchema,
@@ -51,9 +54,10 @@ export const VendorCreateListing = z
   .strict();
 
 export type VendorUpdateListingType = z.infer<typeof VendorUpdateListing>;
+
 export const VendorUpdateListing = z
   .object({
-    print_id: z.never().optional(),
+    print_id: z.unknown().optional(),
     price_amount: z.number().positive().optional(),
     currency_code: z.string().optional(),
     condition_code: z.string().optional(),

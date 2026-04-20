@@ -33,6 +33,7 @@ const listingCreateValidationSchema = listingBaseValidationSchema.merge(
   listingIdentityValidationSchema,
 );
 const listingUpdateValidationSchema = listingBaseValidationSchema.partial();
+const listingStateValidationSchema = listingBaseValidationSchema;
 
 const validateListingStateInvariants = (entry: {
   status: ListingStatus;
@@ -68,27 +69,32 @@ class ListingModuleService extends MedusaService({
   constructor(...args: any[]) {
     super(...args);
 
-    const parentPrototype = Object.getPrototypeOf(
-      ListingModuleService.prototype,
-    );
-    const parentCreateListings = parentPrototype.createListings.bind(this);
-    const parentUpdateListings = parentPrototype.updateListings.bind(this);
+    const internalListingService = (this as any).__container__?.listingService;
 
-    this.createListings = async (
-      data: Record<string, unknown> | Record<string, unknown>[],
-      sharedContext?: any,
-    ) => {
-      this.validateCreateListingsInput(data);
-      return parentCreateListings(data, sharedContext);
-    };
+    if (internalListingService) {
+      const baseCreate = internalListingService.create.bind(
+        internalListingService,
+      );
+      const baseUpdate = internalListingService.update.bind(
+        internalListingService,
+      );
 
-    this.updateListings = async (
-      data: Record<string, unknown> | Record<string, unknown>[],
-      sharedContext?: any,
-    ) => {
-      await this.validateUpdateListingsInput(data, sharedContext);
-      return parentUpdateListings(data, sharedContext);
-    };
+      internalListingService.create = async (
+        data: Record<string, unknown> | Record<string, unknown>[],
+        sharedContext?: any,
+      ) => {
+        this.validateCreateListingsInput(data);
+        return baseCreate(data, sharedContext);
+      };
+
+      internalListingService.update = async (
+        data: Record<string, unknown> | Record<string, unknown>[],
+        sharedContext?: any,
+      ) => {
+        await this.validateUpdateListingsInput(data, sharedContext);
+        return baseUpdate(data, sharedContext);
+      };
+    }
   }
 
   private assertStatusTransition = (
@@ -128,7 +134,7 @@ class ListingModuleService extends MedusaService({
     quantity_available: unknown;
     status: unknown;
   }) => {
-    const validated = listingCreateValidationSchema.safeParse(entry);
+    const validated = listingStateValidationSchema.safeParse(entry);
 
     if (!validated.success) {
       throw new MedusaError(
@@ -150,6 +156,7 @@ class ListingModuleService extends MedusaService({
         "sold listings cannot be mutated",
       );
     }
+
     if (entry.status === "archived") {
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
@@ -164,6 +171,7 @@ class ListingModuleService extends MedusaService({
     this.validateListingInput(data, listingCreateValidationSchema);
 
     const entries = Array.isArray(data) ? data : [data];
+
     for (const entry of entries) {
       if (
         typeof entry.print_id !== "string" ||
@@ -194,7 +202,7 @@ class ListingModuleService extends MedusaService({
 
       this.validateListingInput(updateInput, listingUpdateValidationSchema);
 
-      if ("print_id" in entry) {
+      if (Object.prototype.hasOwnProperty.call(entry, "print_id")) {
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,
           "print_id cannot be updated for an existing listing",
@@ -211,6 +219,7 @@ class ListingModuleService extends MedusaService({
       const listing = await this.retrieveListing(id, undefined, sharedContext);
       const currentStatus = listing.status as ListingStatus;
       const nextStatus = (entry.status ?? listing.status) as ListingStatus;
+
       this.assertStatusTransition(currentStatus, nextStatus);
 
       this.validateListingState({
@@ -277,12 +286,15 @@ class ListingModuleService extends MedusaService({
 
   reserveListing = async (id: string, sharedContext?: any) => {
     const listing = await this.retrieveListing(id, undefined, sharedContext);
+
     this.assertStatusTransition(listing.status as ListingStatus, "reserved");
+
     this.validateListingState({
       price_amount: listing.price_amount,
       quantity_available: listing.quantity_available,
       status: "reserved",
     });
+
     return this.updateListings({ id, status: "reserved" }, sharedContext);
   };
 
@@ -321,12 +333,15 @@ class ListingModuleService extends MedusaService({
 
   sellListing = async (id: string, sharedContext?: any) => {
     const listing = await this.retrieveListing(id, undefined, sharedContext);
+
     this.assertStatusTransition(listing.status as ListingStatus, "sold");
+
     this.validateListingState({
       price_amount: listing.price_amount,
       quantity_available: 0,
       status: "sold",
     });
+
     return this.updateListings(
       {
         id,
