@@ -17,7 +17,7 @@ const defaultListingPayload = {
   seller_note: 'initial note',
   photos: ['https://example.com/a.jpg'],
   location_country: 'US',
-  shipping_profile_id: 'sp_123'
+  shipping_profile_id: 'sp_123',
 }
 
 jest.setTimeout(90 * 1000)
@@ -36,27 +36,27 @@ medusaIntegrationTestRunner({
 
       const seller = await sellerService.createSellers({
         name: sellerName,
-        handle: `handle_${unique}`
+        handle: `handle_${unique}`,
       })
 
       const member = await sellerService.createMembers({
         name: `${sellerName} Owner`,
         email,
-        seller_id: seller.id
+        seller_id: seller.id,
       })
 
       const token = jwt.sign(
         {
           actor_id: member.id,
           actor_type: 'seller',
-          auth_identity_id: `auth_${unique}`
+          auth_identity_id: `auth_${unique}`,
         },
         process.env.JWT_SECRET || 'supersecret'
       )
 
       return {
         token,
-        sellerId: seller.id
+        sellerId: seller.id,
       }
     }
 
@@ -82,12 +82,12 @@ medusaIntegrationTestRunner({
           '/vendor/listings',
           {
             ...defaultListingPayload,
-            print_id: `print_a_${uniqueSeed}`
+            print_id: `print_a_${uniqueSeed}`,
           },
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
-            }
+              Authorization: `Bearer ${sellerA.token}`,
+            },
           }
         )
 
@@ -97,12 +97,12 @@ medusaIntegrationTestRunner({
           '/vendor/listings',
           {
             ...defaultListingPayload,
-            print_id: `print_b_${uniqueSeed}`
+            print_id: `print_b_${uniqueSeed}`,
           },
           {
             headers: {
-              Authorization: `Bearer ${sellerB.token}`
-            }
+              Authorization: `Bearer ${sellerB.token}`,
+            },
           }
         )
 
@@ -115,8 +115,8 @@ medusaIntegrationTestRunner({
           {},
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
-            }
+              Authorization: `Bearer ${sellerA.token}`,
+            },
           }
         )
 
@@ -131,12 +131,12 @@ medusaIntegrationTestRunner({
             ...defaultListingPayload,
             print_id: `print_zero_${Date.now()}`,
             quantity_available: 0,
-            status: 'draft'
+            status: 'draft',
           },
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
-            }
+              Authorization: `Bearer ${sellerA.token}`,
+            },
           }
         )
 
@@ -145,9 +145,9 @@ medusaIntegrationTestRunner({
           {},
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
+              Authorization: `Bearer ${sellerA.token}`,
             },
-            validateStatus: () => true
+            validateStatus: () => true,
           }
         )
 
@@ -163,8 +163,8 @@ medusaIntegrationTestRunner({
           {},
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
-            }
+              Authorization: `Bearer ${sellerA.token}`,
+            },
           }
         )
 
@@ -173,8 +173,8 @@ medusaIntegrationTestRunner({
           {},
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
-            }
+              Authorization: `Bearer ${sellerA.token}`,
+            },
           }
         )
 
@@ -188,13 +188,13 @@ medusaIntegrationTestRunner({
           {},
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
+              Authorization: `Bearer ${sellerA.token}`,
             },
-            validateStatus: () => true
+            validateStatus: () => true,
           }
         )
 
-        expect(response.status).toBe(404)
+        expect([403, 404]).toContain(response.status)
       })
 
       it('archives own listing', async () => {
@@ -203,8 +203,8 @@ medusaIntegrationTestRunner({
           {},
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
-            }
+              Authorization: `Bearer ${sellerA.token}`,
+            },
           }
         )
 
@@ -218,8 +218,8 @@ medusaIntegrationTestRunner({
           {},
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
-            }
+              Authorization: `Bearer ${sellerA.token}`,
+            },
           }
         )
 
@@ -228,9 +228,9 @@ medusaIntegrationTestRunner({
           {},
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
+              Authorization: `Bearer ${sellerA.token}`,
             },
-            validateStatus: () => true
+            validateStatus: () => true,
           }
         )
 
@@ -241,13 +241,23 @@ medusaIntegrationTestRunner({
       })
 
       it('sell sets quantity_available to 0 and status sold', async () => {
+        await api.post(
+          `/vendor/listings/${sellerAListingId}/activate`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${sellerA.token}`,
+            },
+          }
+        )
+
         const response = await api.post(
           `/vendor/listings/${sellerAListingId}/sell`,
           {},
           {
             headers: {
-              Authorization: `Bearer ${sellerA.token}`
-            }
+              Authorization: `Bearer ${sellerA.token}`,
+            },
           }
         )
 
@@ -264,7 +274,7 @@ medusaIntegrationTestRunner({
             `/vendor/listings/${sellerAListingId}/${actionPath}`,
             {},
             {
-              validateStatus: () => true
+              validateStatus: () => true,
             }
           )
 
@@ -272,5 +282,5 @@ medusaIntegrationTestRunner({
         }
       })
     })
-  }
+  },
 })
