@@ -3,6 +3,7 @@ import { model } from '@medusajs/framework/utils'
 export const Listing = model.define('listing', {
   id: model.id({ prefix: 'lst' }).primaryKey(),
   print_id: model.text(),
+  product_variant_id: model.text().nullable(),
   seller_id: model.text(),
   price_amount: model.bigNumber(),
   currency_code: model.text(),

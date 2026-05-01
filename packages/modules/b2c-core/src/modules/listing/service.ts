@@ -17,6 +17,14 @@ const listingBaseValidationSchema = z.object({
   }),
 });
 
+const optionalProductVariantIdSchema = z
+  .string()
+  .transform((value) => value.trim())
+  .refine((value) => value.length > 0, {
+    message: "product_variant_id cannot be empty",
+  })
+  .nullish();
+
 const listingIdentityValidationSchema = z.object({
   print_id: z
     .string({
@@ -27,6 +35,7 @@ const listingIdentityValidationSchema = z.object({
     .refine((value) => value.length > 0, {
       message: "print_id is required",
     }),
+  product_variant_id: optionalProductVariantIdSchema,
 });
 
 const listingCreateValidationSchema = listingBaseValidationSchema.merge(
@@ -206,6 +215,13 @@ class ListingModuleService extends MedusaService({
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,
           "print_id cannot be updated for an existing listing",
+        );
+      }
+
+      if (Object.prototype.hasOwnProperty.call(entry, "product_variant_id")) {
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "product_variant_id cannot be updated for an existing listing",
         );
       }
 

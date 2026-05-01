@@ -1,6 +1,7 @@
 export const vendorListingFields = [
   'id',
   'print_id',
+  'product_variant_id',
   'seller_id',
   'price_amount',
   'currency_code',
