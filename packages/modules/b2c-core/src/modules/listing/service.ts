@@ -235,8 +235,12 @@ class ListingModuleService extends MedusaService({
       const listing = await this.retrieveListing(id, undefined, sharedContext);
       const currentStatus = listing.status as ListingStatus;
       const nextStatus = (entry.status ?? listing.status) as ListingStatus;
+      const allowCheckoutStockCompensation =
+        sharedContext?.allow_checkout_stock_compensation === true;
 
-      this.assertStatusTransition(currentStatus, nextStatus);
+      if (!allowCheckoutStockCompensation) {
+        this.assertStatusTransition(currentStatus, nextStatus);
+      }
 
       this.validateListingState({
         price_amount: entry.price_amount ?? listing.price_amount,

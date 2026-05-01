@@ -39,6 +39,7 @@ import { registerUsageStep } from "../../promotions/steps";
 import { createSplitOrderPaymentsStep } from "../../split-order-payment/steps";
 import {
   createOrderSetStep,
+  decrementListingStockForCartStep,
   validateCartSellersStep,
   validateCartShippingOptionsStep,
 } from "../steps";
@@ -356,7 +357,15 @@ export const splitAndCompleteCartWorkflow = createWorkflow(
         })),
       }));
 
+      const listingStockInput = transform(
+        { cart, createdOrders },
+        ({ cart }) => ({
+          line_items: cart.items ?? [],
+        })
+      );
+
       parallelize(
+        decrementListingStockForCartStep(listingStockInput),
         createSplitOrderPaymentsStep(splitPaymentsToCreate),
         createRemoteLinkStep(links),
         reserveInventoryStep(formatedInventoryItems),
