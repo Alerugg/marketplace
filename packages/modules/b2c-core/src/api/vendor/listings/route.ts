@@ -12,6 +12,36 @@ import {
   VendorCreateListingType
 } from './validators'
 
+type ResolvedPrintReference = {
+  print_id: string
+}
+
+const resolvePrintReference = async (
+  printId: string
+): Promise<ResolvedPrintReference> => {
+  return {
+    print_id: printId
+  }
+}
+
+const buildCreatePayload = async (
+  req: AuthenticatedMedusaRequest<VendorCreateListingType>
+) => {
+  const seller = await fetchSellerByAuthActorId(
+    req.auth_context.actor_id,
+    req.scope
+  )
+
+  const validatedBody = VendorCreateListing.parse(req.body)
+  const resolvedPrint = await resolvePrintReference(validatedBody.print_id)
+
+  return {
+    ...validatedBody,
+    print_id: resolvedPrint.print_id,
+    seller_id: seller.id
+  }
+}
+
 export const POST = async (
   req: AuthenticatedMedusaRequest<VendorCreateListingType>,
   res: MedusaResponse
@@ -19,17 +49,7 @@ export const POST = async (
   const listingModuleService =
     req.scope.resolve<ListingModuleService>(LISTING_MODULE)
 
-  const seller = await fetchSellerByAuthActorId(
-    req.auth_context.actor_id,
-    req.scope
-  )
-
-  const validatedBody = VendorCreateListing.parse(req.body)
-
-  const createPayload = {
-    ...validatedBody,
-    seller_id: seller.id
-  }
+  const createPayload = await buildCreatePayload(req)
 
   const listing = await listingModuleService.createListings(createPayload as any)
 
