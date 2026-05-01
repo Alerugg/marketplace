@@ -7,9 +7,20 @@ import * as QueryConfig from '@medusajs/medusa/api/store/carts/query-config'
 import { StoreGetCartsCart } from '@medusajs/medusa/api/store/carts/validators'
 import { StoreAddCartShippingMethods } from '@medusajs/medusa/api/store/carts/validators'
 
-import { StoreDeleteCartShippingMethods } from './validators'
+import { StoreAddListingToCart, StoreDeleteCartShippingMethods } from './validators'
 
 export const storeCartsMiddlewares: MiddlewareRoute[] = [
+  {
+    method: ['POST'],
+    matcher: '/store/carts/:id/listings',
+    middlewares: [
+      validateAndTransformBody(StoreAddListingToCart),
+      validateAndTransformQuery(
+        StoreGetCartsCart,
+        QueryConfig.retrieveTransformQueryConfig
+      )
+    ]
+  },
   {
     method: ['POST'],
     matcher: '/store/carts/:id/shipping-methods',
