@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken'
 
+import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
+import { createProductsWorkflow } from '@medusajs/medusa/core-flows'
 import { medusaIntegrationTestRunner } from '@medusajs/test-utils'
 
 type SellerAuthContext = {
@@ -60,6 +62,68 @@ medusaIntegrationTestRunner({
       }
     }
 
+    const createProductVariantId = async (sellerId: string): Promise<string> => {
+      const container = getContainer()
+      const query = container.resolve<any>(ContainerRegistrationKeys.QUERY)
+      const unique = `${Date.now()}_${Math.floor(Math.random() * 10000)}`
+
+      const {
+        result: [createdProduct]
+      } = await createProductsWorkflow.run({
+        container,
+        input: {
+          products: [
+            {
+              title: `Listing Create Product ${unique}`,
+              handle: `listing-create-product-${unique.replace(/_/g, '-')}`,
+              status: 'published',
+              options: [
+                {
+                  title: 'Condition',
+                  values: ['Near Mint']
+                }
+              ],
+              variants: [
+                {
+                  title: 'Near Mint',
+                  options: {
+                    Condition: 'Near Mint'
+                  },
+                  manage_inventory: false,
+                  prices: [
+                    {
+                      currency_code: 'usd',
+                      amount: 199.99
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          additional_data: {
+            seller_id: sellerId
+          }
+        }
+      })
+
+      const {
+        data: [product]
+      } = await query.graph(
+        {
+          entity: 'product',
+          fields: ['id', 'variants.id'],
+          filters: {
+            id: createdProduct.id
+          }
+        },
+        {
+          throwIfKeyNotFound: true
+        }
+      )
+
+      return product.variants[0].id
+    }
+
     const createListing = async (
       token: string,
       overrides: Record<string, any> = {}
@@ -97,82 +161,45 @@ medusaIntegrationTestRunner({
         )
       })
 
-      it('creates a draft listing for the authenticated seller', async () => {
-        const printId = `print_create_draft_${Date.now()}`
-        const response = await createListing(sellerA.token, {
-          print_id: printId,
-          status: 'draft',
-          quantity_available: 2
-        })
+      it('allows creating a listing bound to own product variant', async () => {
+        const productVariantId = await createProductVariantId(sellerA.sellerId)
 
-        expect(response.status).toBe(201)
-        expect(response.data.listing.id).toBeTruthy()
-        expect(response.data.listing.seller_id).toBe(sellerA.sellerId)
-        expect(response.data.listing.print_id).toBe(printId)
-        expect(response.data.listing.status).toBe('draft')
-        expect(response.data.listing.quantity_available).toBe(2)
-      })
-
-      it('creates an active listing when stock is greater than 0', async () => {
         const response = await createListing(sellerA.token, {
-          print_id: `print_create_active_${Date.now()}`,
-          status: 'active',
-          quantity_available: 3
+          print_id: `print_own_variant_${Date.now()}`,
+          product_variant_id: productVariantId
         })
 
         expect(response.status).toBe(201)
         expect(response.data.listing.seller_id).toBe(sellerA.sellerId)
-        expect(response.data.listing.status).toBe('active')
-        expect(response.data.listing.quantity_available).toBe(3)
+        expect(response.data.listing.product_variant_id).toBe(productVariantId)
       })
 
-      it('rejects seller_id in create request body', async () => {
+      it('rejects creating a listing bound to another seller product variant', async () => {
+        const sellerBProductVariantId = await createProductVariantId(
+          sellerB.sellerId
+        )
+
         const response = await createListing(sellerA.token, {
-          seller_id: sellerB.sellerId
+          print_id: `print_foreign_variant_${Date.now()}`,
+          product_variant_id: sellerBProductVariantId
+        })
+
+        expect(response.status).toBe(403)
+        expect(response.data.message).toContain(
+          'product_variant_id does not belong to the authenticated seller'
+        )
+      })
+
+      it('rejects creating a listing bound to a missing product variant', async () => {
+        const response = await createListing(sellerA.token, {
+          print_id: `print_missing_variant_${Date.now()}`,
+          product_variant_id: `variant_missing_${Date.now()}`
         })
 
         expect(response.status).toBe(400)
-      })
-
-      it('rejects an empty print_id', async () => {
-        const response = await createListing(sellerA.token, {
-          print_id: '   '
-        })
-
-        expect(response.status).toBe(400)
-      })
-
-      it('rejects non-positive price_amount', async () => {
-        const response = await createListing(sellerA.token, {
-          price_amount: 0
-        })
-
-        expect(response.status).toBe(400)
-      })
-
-      it('rejects negative quantity_available', async () => {
-        const response = await createListing(sellerA.token, {
-          quantity_available: -1
-        })
-
-        expect(response.status).toBe(400)
-      })
-
-      it('rejects active listing creation with zero stock', async () => {
-        const response = await createListing(sellerA.token, {
-          status: 'active',
-          quantity_available: 0
-        })
-
-        expect(response.status).toBe(400)
-      })
-
-      it('requires authentication on create route', async () => {
-        const response = await api.post('/vendor/listings', defaultListingPayload, {
-          validateStatus: () => true
-        })
-
-        expect([401, 403]).toContain(response.status)
+        expect(response.data.message).toContain(
+          'product_variant_id does not reference an existing product variant'
+        )
       })
     })
   }

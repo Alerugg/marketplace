@@ -7,6 +7,7 @@ import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
 
 import { LISTING_MODULE, ListingModuleService } from '../../../modules/listing'
 import { fetchSellerByAuthActorId } from '../../../shared/infra/http/utils'
+import { assertProductVariantBelongsToSeller } from './utils'
 import {
   VendorCreateListing,
   VendorCreateListingType
@@ -57,6 +58,13 @@ const buildCreatePayload = async (
   )
 
   const validatedBody = VendorCreateListing.parse(req.body)
+
+  await assertProductVariantBelongsToSeller(
+    req.scope,
+    seller.id,
+    validatedBody.product_variant_id
+  )
+
   const resolvedPrint = await resolvePrintReference(
     validatedBody.print_id,
     req.scope
@@ -76,18 +84,32 @@ export const POST = async (
   const listingModuleService =
     req.scope.resolve<ListingModuleService>(LISTING_MODULE)
 
-  const createPayload = await buildCreatePayload(req)
+  try {
+    const createPayload = await buildCreatePayload(req)
 
-  const listing = await listingModuleService.createListings(createPayload as any)
+    const listing = await listingModuleService.createListings(createPayload as any)
 
-  const listingData = await refetchEntity(
-    'listing',
-    listing.id,
-    req.scope,
-    req.queryConfig.fields
-  )
+    const listingData = await refetchEntity(
+      'listing',
+      listing.id,
+      req.scope,
+      req.queryConfig.fields
+    )
 
-  res.status(201).json({ listing: listingData })
+    res.status(201).json({ listing: listingData })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+
+    if (
+      message ===
+      'product_variant_id does not belong to the authenticated seller'
+    ) {
+      res.status(403).json({ message })
+      return
+    }
+
+    throw error
+  }
 }
 
 export const GET = async (
