@@ -86,7 +86,7 @@ export const POST = async (
   }
 
   const baseUrl = buildBaseUrl(req)
-  const listings: any[] = []
+  const listings: unknown[] = []
 
   for (const listingId of listing_ids) {
     const response = await fetch(
@@ -119,7 +119,8 @@ export const POST = async (
       })
     }
 
-    listings.push((payload as any).listing)
+    const { listing } = payload as { listing: unknown }
+    listings.push(listing)
   }
 
   return res.status(200).json({
