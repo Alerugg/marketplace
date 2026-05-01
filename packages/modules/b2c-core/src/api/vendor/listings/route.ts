@@ -16,9 +16,33 @@ type ResolvedPrintReference = {
   print_id: string
 }
 
+type PrintReferenceResolver = {
+  resolvePrintReference?: (printId: string) => Promise<ResolvedPrintReference | null>
+}
+
+const CATALOG_PRINT_REFERENCE_RESOLVER = 'catalogPrintReferenceResolver'
+
 const resolvePrintReference = async (
-  printId: string
+  printId: string,
+  scope: AuthenticatedMedusaRequest['scope']
 ): Promise<ResolvedPrintReference> => {
+  try {
+    const resolver = scope.resolve<PrintReferenceResolver>(
+      CATALOG_PRINT_REFERENCE_RESOLVER,
+      {
+        allowUnregistered: true
+      }
+    )
+
+    const resolvedPrint = await resolver?.resolvePrintReference?.(printId)
+
+    if (resolvedPrint?.print_id) {
+      return resolvedPrint
+    }
+  } catch {
+    // Catalog binding is intentionally optional while the catalog layer is still evolving.
+  }
+
   return {
     print_id: printId
   }
@@ -33,7 +57,10 @@ const buildCreatePayload = async (
   )
 
   const validatedBody = VendorCreateListing.parse(req.body)
-  const resolvedPrint = await resolvePrintReference(validatedBody.print_id)
+  const resolvedPrint = await resolvePrintReference(
+    validatedBody.print_id,
+    req.scope
+  )
 
   return {
     ...validatedBody,
