@@ -6,8 +6,9 @@ import {
   useQueryGraphStep
 } from '@medusajs/medusa/core-flows'
 
-import sellerShippingOptionLink from '../../../links/seller-shipping-option'
 import { validateCartShippingOptionsStep } from '../steps'
+
+const SELLER_SHIPPING_OPTION_ENTRY_POINT = 'seller_shipping_option'
 
 type AddSellerShippingMethodToCartWorkflowInput = {
   cart_id: string
@@ -66,7 +67,7 @@ export const addSellerShippingMethodToCartWorkflow = createWorkflow(
     )
 
     const { data: sellerShippingOptions } = useQueryGraphStep({
-      entity: sellerShippingOptionLink.entryPoint,
+      entity: SELLER_SHIPPING_OPTION_ENTRY_POINT,
       fields: ['shipping_option.*', 'seller_id'],
       filters: {
         shipping_option_id: shippingOptions
