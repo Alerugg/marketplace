@@ -500,6 +500,196 @@ medusaIntegrationTestRunner({
         expect(afterSecondComplete.quantity_available).toBe(1)
         expect(afterSecondComplete.status).toBe('active')
       })
+
+      it('rejects completion when listing becomes sold before cart completion', async () => {
+        const container = getContainer()
+        const listingModuleService = container.resolve<any>('listing')
+        const query = container.resolve<any>(ContainerRegistrationKeys.QUERY)
+
+        const { cart, listing } = await prepareCartWithListing(setup, 1, 1)
+
+        await listingModuleService.updateListings({
+          id: listing.id,
+          quantity_available: 0,
+          status: 'sold'
+        })
+
+        const completeResponse = await api.post(
+          `/store/carts/${cart.id}/complete`,
+          {},
+          {
+            headers: setup.storeHeaders,
+            validateStatus: () => true
+          }
+        )
+
+        expect(completeResponse.status).toBeGreaterThanOrEqual(400)
+        expect(completeResponse.status).toBeLessThan(500)
+        expect(JSON.stringify(completeResponse.data)).toContain(
+          'Marketplace listing is not available'
+        )
+
+        const unchangedListing = await listingModuleService.retrieveListing(
+          listing.id
+        )
+
+        expect(unchangedListing.quantity_available).toBe(0)
+        expect(unchangedListing.status).toBe('sold')
+
+        const {
+          data: [uncompletedCart]
+        } = await query.graph({
+          entity: 'cart',
+          fields: ['id', 'completed_at'],
+          filters: {
+            id: cart.id
+          }
+        })
+
+        expect(uncompletedCart.completed_at).toBeFalsy()
+      })
+
+      it('rejects completion when listing becomes paused before cart completion', async () => {
+        const container = getContainer()
+        const listingModuleService = container.resolve<any>('listing')
+        const query = container.resolve<any>(ContainerRegistrationKeys.QUERY)
+
+        const { cart, listing } = await prepareCartWithListing(setup, 2, 1)
+
+        await listingModuleService.updateListings({
+          id: listing.id,
+          status: 'paused'
+        })
+
+        const completeResponse = await api.post(
+          `/store/carts/${cart.id}/complete`,
+          {},
+          {
+            headers: setup.storeHeaders,
+            validateStatus: () => true
+          }
+        )
+
+        expect(completeResponse.status).toBeGreaterThanOrEqual(400)
+        expect(completeResponse.status).toBeLessThan(500)
+        expect(JSON.stringify(completeResponse.data)).toContain(
+          'Marketplace listing is not available'
+        )
+
+        const unchangedListing = await listingModuleService.retrieveListing(
+          listing.id
+        )
+
+        expect(unchangedListing.quantity_available).toBe(2)
+        expect(unchangedListing.status).toBe('paused')
+
+        const {
+          data: [uncompletedCart]
+        } = await query.graph({
+          entity: 'cart',
+          fields: ['id', 'completed_at'],
+          filters: {
+            id: cart.id
+          }
+        })
+
+        expect(uncompletedCart.completed_at).toBeFalsy()
+      })
+
+      it('rejects completion when listing becomes archived before cart completion', async () => {
+        const container = getContainer()
+        const listingModuleService = container.resolve<any>('listing')
+        const query = container.resolve<any>(ContainerRegistrationKeys.QUERY)
+
+        const { cart, listing } = await prepareCartWithListing(setup, 2, 1)
+
+        await listingModuleService.updateListings({
+          id: listing.id,
+          status: 'archived'
+        })
+
+        const completeResponse = await api.post(
+          `/store/carts/${cart.id}/complete`,
+          {},
+          {
+            headers: setup.storeHeaders,
+            validateStatus: () => true
+          }
+        )
+
+        expect(completeResponse.status).toBeGreaterThanOrEqual(400)
+        expect(completeResponse.status).toBeLessThan(500)
+        expect(JSON.stringify(completeResponse.data)).toContain(
+          'Marketplace listing is not available'
+        )
+
+        const unchangedListing = await listingModuleService.retrieveListing(
+          listing.id
+        )
+
+        expect(unchangedListing.quantity_available).toBe(2)
+        expect(unchangedListing.status).toBe('archived')
+
+        const {
+          data: [uncompletedCart]
+        } = await query.graph({
+          entity: 'cart',
+          fields: ['id', 'completed_at'],
+          filters: {
+            id: cart.id
+          }
+        })
+
+        expect(uncompletedCart.completed_at).toBeFalsy()
+      })
+
+      it('rejects completion when listing availability drops below cart quantity', async () => {
+        const container = getContainer()
+        const listingModuleService = container.resolve<any>('listing')
+        const query = container.resolve<any>(ContainerRegistrationKeys.QUERY)
+
+        const { cart, listing } = await prepareCartWithListing(setup, 2, 2)
+
+        await listingModuleService.updateListings({
+          id: listing.id,
+          quantity_available: 1,
+          status: 'active'
+        })
+
+        const completeResponse = await api.post(
+          `/store/carts/${cart.id}/complete`,
+          {},
+          {
+            headers: setup.storeHeaders,
+            validateStatus: () => true
+          }
+        )
+
+        expect(completeResponse.status).toBeGreaterThanOrEqual(400)
+        expect(completeResponse.status).toBeLessThan(500)
+        expect(JSON.stringify(completeResponse.data)).toContain(
+          'Requested quantity exceeds listing availability'
+        )
+
+        const unchangedListing = await listingModuleService.retrieveListing(
+          listing.id
+        )
+
+        expect(unchangedListing.quantity_available).toBe(1)
+        expect(unchangedListing.status).toBe('active')
+
+        const {
+          data: [uncompletedCart]
+        } = await query.graph({
+          entity: 'cart',
+          fields: ['id', 'completed_at'],
+          filters: {
+            id: cart.id
+          }
+        })
+
+        expect(uncompletedCart.completed_at).toBeFalsy()
+      })
     })
   }
 })
