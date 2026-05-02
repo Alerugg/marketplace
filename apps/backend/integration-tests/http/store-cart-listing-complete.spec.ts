@@ -690,6 +690,129 @@ medusaIntegrationTestRunner({
 
         expect(uncompletedCart.completed_at).toBeFalsy()
       })
+
+      it('allows only one cart to complete when two carts race for the same listing stock', async () => {
+        const container = getContainer()
+        const listingModuleService = container.resolve<any>('listing')
+        const query = container.resolve<any>(ContainerRegistrationKeys.QUERY)
+
+        const productVariantId = await createProductVariantId(
+          setup.seller.sellerId,
+          setup.salesChannelId
+        )
+
+        const listing = await createListing(setup, {
+          print_id: `print_complete_cart_concurrency_${Date.now()}_${Math.floor(
+            Math.random() * 10000
+          )}`,
+          product_variant_id: productVariantId,
+          quantity_available: 1,
+          status: 'active'
+        })
+
+        const createReadyCart = async () => {
+          const cart = await createCart(setup)
+
+          const addListingResponse = await api.post(
+            `/store/carts/${cart.id}/listings`,
+            {
+              listing_id: listing.id,
+              quantity: 1,
+              metadata: {
+                source: 'complete-cart-listing-concurrency-test'
+              }
+            },
+            {
+              headers: setup.storeHeaders,
+              validateStatus: () => true
+            }
+          )
+
+          expectStatus(addListingResponse, 200)
+
+          const shippingResponse = await api.post(
+            `/store/carts/${cart.id}/shipping-methods`,
+            {
+              option_id: setup.shippingOptionId,
+              data: {}
+            },
+            {
+              headers: setup.storeHeaders,
+              validateStatus: () => true
+            }
+          )
+
+          expectStatus(shippingResponse, 200)
+
+          await createPaymentCollectionAndSession(cart.id, setup.storeHeaders)
+
+          return cart
+        }
+
+        const [firstCart, secondCart] = await Promise.all([
+          createReadyCart(),
+          createReadyCart()
+        ])
+
+        const responses = await Promise.all([
+          api.post(
+            `/store/carts/${firstCart.id}/complete`,
+            {},
+            {
+              headers: setup.storeHeaders,
+              validateStatus: () => true
+            }
+          ),
+          api.post(
+            `/store/carts/${secondCart.id}/complete`,
+            {},
+            {
+              headers: setup.storeHeaders,
+              validateStatus: () => true
+            }
+          )
+        ])
+
+        const successfulResponses = responses.filter(
+          (response) => response.status === 200
+        )
+        const failedResponses = responses.filter(
+          (response) => response.status >= 400
+        )
+
+        expect(successfulResponses).toHaveLength(1)
+        expect(failedResponses).toHaveLength(1)
+        expect(successfulResponses[0].data.order_set?.id).toBeTruthy()
+
+        const updatedListing = await listingModuleService.retrieveListing(
+          listing.id
+        )
+
+        expect(updatedListing.quantity_available).toBe(0)
+        expect(updatedListing.status).toBe('sold')
+
+        const getCartCompletedAt = async (cartId: string) => {
+          const {
+            data: [cartRecord]
+          } = await query.graph({
+            entity: 'cart',
+            fields: ['id', 'completed_at'],
+            filters: {
+              id: cartId
+            }
+          })
+
+          return cartRecord.completed_at
+        }
+
+        const completionStates = await Promise.all([
+          getCartCompletedAt(firstCart.id),
+          getCartCompletedAt(secondCart.id)
+        ])
+
+        expect(completionStates.filter(Boolean)).toHaveLength(1)
+      })
+
     })
   }
 })
