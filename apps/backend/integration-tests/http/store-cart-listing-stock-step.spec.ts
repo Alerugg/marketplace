@@ -207,6 +207,45 @@ medusaIntegrationTestRunner({
         expect(unchangedListing.status).toBe('active')
       })
 
+
+      it('allows only one direct listing stock decrement when two calls race for one unit', async () => {
+        const container = getContainer()
+        const listingModuleService = container.resolve<any>('listing')
+
+        const listing = await createListing({
+          quantity_available: 1,
+          status: 'active'
+        })
+
+        const results = await Promise.allSettled([
+          listingModuleService.decrementListingQuantity({
+            id: listing.id,
+            quantity: 1
+          }),
+          listingModuleService.decrementListingQuantity({
+            id: listing.id,
+            quantity: 1
+          })
+        ])
+
+        const fulfilled = results.filter(
+          (result) => result.status === 'fulfilled'
+        )
+        const rejected = results.filter(
+          (result) => result.status === 'rejected'
+        )
+
+        expect(fulfilled).toHaveLength(1)
+        expect(rejected).toHaveLength(1)
+
+        const updatedListing = await listingModuleService.retrieveListing(
+          listing.id
+        )
+
+        expect(updatedListing.quantity_available).toBe(0)
+        expect(updatedListing.status).toBe('sold')
+      })
+
       it('rejects overselling listing stock', async () => {
         const container = getContainer()
         const listingModuleService = container.resolve<any>('listing')

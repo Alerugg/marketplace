@@ -1,4 +1,11 @@
-import { MedusaError, MedusaService } from "@medusajs/framework/utils";
+import { Context } from "@medusajs/framework/types";
+import {
+  InjectManager,
+  InjectTransactionManager,
+  MedusaContext,
+  MedusaError,
+  MedusaService,
+} from "@medusajs/framework/utils";
 import { z } from "zod";
 
 import { Listing } from "./models/listing";
@@ -251,10 +258,11 @@ class ListingModuleService extends MedusaService({
     }
   };
 
-  decrementListingQuantity = async (
+  @InjectTransactionManager()
+  protected async decrementListingQuantity_(
     data: { id: string; quantity: number; next_status?: ListingStatus },
-    sharedContext?: any,
-  ) => {
+    @MedusaContext() sharedContext?: Context<any>,
+  ) {
     if (!Number.isInteger(data.quantity) || data.quantity <= 0) {
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
@@ -262,47 +270,88 @@ class ListingModuleService extends MedusaService({
       );
     }
 
-    const listing = await this.retrieveListing(
-      data.id,
-      undefined,
-      sharedContext,
+    const transactionManager = sharedContext?.transactionManager;
+
+    if (!transactionManager) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "Unable to mutate listing stock without a transaction manager",
+      );
+    }
+
+    const rows = await transactionManager.execute(
+      `
+        select
+          "id",
+          "price_amount",
+          "quantity_available",
+          "status"
+        from "listing"
+        where "id" = ?
+        for update
+      `,
+      [data.id],
     );
+
+    const listing = rows?.[0];
+
+    if (!listing) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        "Listing not found",
+      );
+    }
+
+    const currentStatus = listing.status as ListingStatus;
+    const currentQuantityAvailable = Number(listing.quantity_available);
+    const currentPriceAmount = Number(listing.price_amount);
+
     this.assertStockMutationAllowed({
-      status: listing.status as ListingStatus,
-      quantity_available: listing.quantity_available,
+      status: currentStatus,
+      quantity_available: currentQuantityAvailable,
     });
 
-    if (listing.quantity_available < data.quantity) {
+    if (currentQuantityAvailable < data.quantity) {
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
         "insufficient quantity_available for decrement",
       );
     }
 
-    const quantity_available = listing.quantity_available - data.quantity;
+    const quantity_available = currentQuantityAvailable - data.quantity;
     const resolvedStatus =
-      data.next_status ?? (quantity_available === 0 ? "sold" : listing.status);
+      data.next_status ?? (quantity_available === 0 ? "sold" : currentStatus);
 
-    this.assertStatusTransition(
-      listing.status as ListingStatus,
-      resolvedStatus as ListingStatus,
-    );
+    this.assertStatusTransition(currentStatus, resolvedStatus);
 
     this.validateListingState({
-      price_amount: listing.price_amount,
+      price_amount: currentPriceAmount,
       quantity_available,
       status: resolvedStatus,
     });
 
-    return this.updateListings(
-      {
-        id: data.id,
-        quantity_available,
-        status: resolvedStatus,
-      },
-      sharedContext,
+    await transactionManager.execute(
+      `
+        update "listing"
+        set
+          "quantity_available" = ?,
+          "status" = ?,
+          "updated_at" = now()
+        where "id" = ?
+      `,
+      [quantity_available, resolvedStatus, data.id],
     );
-  };
+  }
+
+  @InjectManager()
+  async decrementListingQuantity(
+    data: { id: string; quantity: number; next_status?: ListingStatus },
+    @MedusaContext() sharedContext?: Context<any>,
+  ) {
+    await this.decrementListingQuantity_(data, sharedContext);
+
+    return this.retrieveListing(data.id, undefined, sharedContext);
+  }
 
   reserveListing = async (id: string, sharedContext?: any) => {
     const listing = await this.retrieveListing(id, undefined, sharedContext);
