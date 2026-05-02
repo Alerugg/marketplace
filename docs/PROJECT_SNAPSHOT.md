@@ -97,3 +97,36 @@ Move to cart/buy flow integration for listings:
 2. Validate stock reservation/decrement behavior.
 3. Prevent checkout of inactive/sold/archived listings.
 4. Add storefront product/card detail composition later, once catalog binding is finalized.
+
+## Latest update — 2026-05-02
+
+### Listing product variant binding
+Implemented product_variant_id support on listings so marketplace listings can be connected to Medusa product variants.
+
+Validated:
+- Listing migration adds product_variant_id
+- Listing model exposes product_variant_id
+- Vendor listing create/query supports product_variant_id
+- Store listing query exposes product_variant_id
+
+### Store cart listing add API
+Implemented:
+
+POST /store/carts/:id/listings
+
+Behavior:
+- Accepts listing_id, quantity and optional metadata
+- Only active listings can be added
+- Listing must have product_variant_id
+- Quantity cannot exceed listing quantity_available
+- Adds the underlying product variant to the Medusa cart
+- Persists marketplace listing metadata on the cart line item:
+  - marketplace_listing_id
+  - listing_id
+  - print_id
+  - seller_id
+
+Validated:
+- Backend lint: PASS
+- Store cart listing add integration test: PASS
+- Store public listing query integration test: PASS

@@ -16,10 +16,21 @@ const requiredPrintIdSchema = z
     message: "print_id is required",
   });
 
+const optionalProductVariantIdSchema = z
+  .string({
+    invalid_type_error: "product_variant_id must be a string",
+  })
+  .transform((value) => value.trim())
+  .refine((value) => value.length > 0, {
+    message: "product_variant_id cannot be empty",
+  })
+  .nullish();
+
 const listingFilterableFields = z.object({
   id: z.union([z.string(), z.array(z.string())]).optional(),
   seller_id: z.union([z.string(), z.array(z.string())]).optional(),
   print_id: z.union([z.string(), z.array(z.string())]).optional(),
+  product_variant_id: z.union([z.string(), z.array(z.string())]).optional(),
   condition_code: z.union([z.string(), z.array(z.string())]).optional(),
   currency_code: z.union([z.string(), z.array(z.string())]).optional(),
   status: listingStatusEnum.optional(),
@@ -41,6 +52,7 @@ export type VendorCreateListingType = z.infer<typeof VendorCreateListing>;
 export const VendorCreateListing = z
   .object({
     print_id: requiredPrintIdSchema,
+    product_variant_id: optionalProductVariantIdSchema,
     price_amount: z.number().positive(),
     currency_code: z.string(),
     condition_code: z.string(),
@@ -58,6 +70,7 @@ export type VendorUpdateListingType = z.infer<typeof VendorUpdateListing>;
 export const VendorUpdateListing = z
   .object({
     print_id: z.unknown().optional(),
+    product_variant_id: z.unknown().optional(),
     price_amount: z.number().positive().optional(),
     currency_code: z.string().optional(),
     condition_code: z.string().optional(),
@@ -75,6 +88,14 @@ export const VendorUpdateListing = z
         code: z.ZodIssueCode.custom,
         message: "print_id cannot be updated for an existing listing",
         path: ["print_id"],
+      });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(value, "product_variant_id")) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "product_variant_id cannot be updated for an existing listing",
+        path: ["product_variant_id"],
       });
     }
   });
