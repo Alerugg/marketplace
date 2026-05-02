@@ -108,7 +108,7 @@ export const decrementListingStockForCartStep = createStep(
       if (listing.status !== 'active') {
         throw new MedusaError(
           MedusaError.Types.NOT_FOUND,
-          'Listing not found'
+          'Marketplace listing is not available'
         )
       }
 
