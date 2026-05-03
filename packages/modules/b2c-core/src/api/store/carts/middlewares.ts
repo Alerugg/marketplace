@@ -26,6 +26,46 @@ const guardCartCustomerIfBound = checkCartCustomerOwnershipIfBound()
 
 export const storeCartsMiddlewares: MiddlewareRoute[] = [
   {
+    method: ['GET'],
+    matcher: '/store/carts/:id',
+    middlewares: [optionalCustomerAuth, guardCartCustomerIfBound]
+  },
+  {
+    method: ['POST'],
+    matcher: '/store/carts/:id',
+    middlewares: [optionalCustomerAuth, guardCartCustomerIfBound]
+  },
+  {
+    method: ['POST'],
+    matcher: '/store/carts/:id/customer',
+    middlewares: [optionalCustomerAuth, guardCartCustomerIfBound]
+  },
+  {
+    method: ['POST'],
+    matcher: '/store/carts/:id/line-items',
+    middlewares: [optionalCustomerAuth, guardCartCustomerIfBound]
+  },
+  {
+    method: ['POST'],
+    matcher: '/store/carts/:id/line-items/:line_id',
+    middlewares: [optionalCustomerAuth, guardCartCustomerIfBound]
+  },
+  {
+    method: ['POST'],
+    matcher: '/store/carts/:id/promotions',
+    middlewares: [optionalCustomerAuth, guardCartCustomerIfBound]
+  },
+  {
+    method: ['DELETE'],
+    matcher: '/store/carts/:id/promotions',
+    middlewares: [optionalCustomerAuth, guardCartCustomerIfBound]
+  },
+  {
+    method: ['POST'],
+    matcher: '/store/carts/:id/taxes',
+    middlewares: [optionalCustomerAuth, guardCartCustomerIfBound]
+  },
+  {
     method: ['POST'],
     matcher: '/store/carts/:id/listings',
     middlewares: [
