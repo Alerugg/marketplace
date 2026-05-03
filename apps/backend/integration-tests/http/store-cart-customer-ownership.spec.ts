@@ -560,7 +560,7 @@ medusaIntegrationTestRunner({
         await addShippingMethodToCart(cart.id, customerA)
         await createPaymentCollectionAndSession(
           cart.id,
-          marketplaceBase.storeHeaders
+          authHeaders(customerA)
         )
 
         const completeResponse = await api.post(

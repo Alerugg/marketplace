@@ -42,16 +42,16 @@ type MarketplaceSetup = MarketplaceBase & {
 }
 
 const defaultListingPayload = {
-  print_id: 'print_store_returns_query_001',
+  print_id: 'print_store_cart_customer_ownership_001',
   price_amount: 19.99,
   currency_code: 'eur',
   condition_code: 'near_mint',
   quantity_available: 1,
   status: 'active',
-  seller_note: 'store returns query test listing',
+  seller_note: 'store cart customer ownership test listing',
   photos: ['https://example.com/a.jpg'],
   location_country: 'ES',
-  shipping_profile_id: 'sp_store_returns_query_123'
+  shipping_profile_id: 'sp_store_cart_customer_ownership_123'
 }
 
 jest.setTimeout(120 * 1000)
@@ -110,7 +110,7 @@ medusaIntegrationTestRunner({
 
       const seller = await sellerService.createSellers({
         name: sellerName,
-        handle: `store-returns-query-seller-${unique}`,
+        handle: `store-cart-customer-ownership-seller-${unique}`,
         store_status: StoreStatus.ACTIVE
       })
 
@@ -149,7 +149,7 @@ medusaIntegrationTestRunner({
         '/vendor/shipping-profiles',
         {
           name,
-          type: 'store_returns_query'
+          type: 'store_cart_customer_ownership'
         },
         {
           headers: {
@@ -200,7 +200,7 @@ medusaIntegrationTestRunner({
         input: {
           data: [
             {
-              name: `Europe Store Returns ${sellerLabel} ${unique}`,
+              name: `Europe Store Cart Customer Ownership ${sellerLabel} ${unique}`,
               fulfillment_set_id: fulfillmentSetId,
               geo_zones: [
                 {
@@ -224,13 +224,13 @@ medusaIntegrationTestRunner({
       const unique = `${Date.now()}_${Math.floor(Math.random() * 10000)}`
 
       const seller = await createSellerAuthContext(
-        `seller-store-order-set-${sellerLabel}-${unique}@example.com`,
-        `Seller Store Returns ${sellerLabel} ${unique}`
+        `seller-store-cart-customer-ownership-${sellerLabel}-${unique}@example.com`,
+        `Seller Store Cart Customer Ownership ${sellerLabel} ${unique}`
       )
 
       await createSellerShippingProfile(
         seller,
-        `Store Returns Shipping Profile ${sellerLabel} ${unique}`
+        `Store Cart Customer Ownership Shipping Profile ${sellerLabel} ${unique}`
       )
 
       const stockLocation = await createSellerStockLocation(
@@ -278,8 +278,8 @@ medusaIntegrationTestRunner({
         input: {
           products: [
             {
-              title: `Store Returns Product ${unique}`,
-              handle: `store-order-set-product-${unique.replace(/_/g, '-')}`,
+              title: `Store Cart Customer Ownership Product ${unique}`,
+              handle: `store-cart-customer-ownership-product-${unique.replace(/_/g, '-')}`,
               status: 'published',
               sales_channels: [
                 {
@@ -356,7 +356,7 @@ medusaIntegrationTestRunner({
         region_id: setup.regionId,
         sales_channel_id: setup.salesChannelId,
         customer_id: customer.customerId,
-        email: customer.email || `buyer-store-order-set-${unique}@example.com`,
+        email: customer.email || `buyer-store-cart-customer-ownership-${unique}@example.com`,
         shipping_address: address,
         billing_address: address
       })
@@ -430,136 +430,127 @@ medusaIntegrationTestRunner({
       return paymentSessionResponse.data.payment_collection
     }
 
-    const completeCartWithListingAndReturnOrderId = async (
-      setup: MarketplaceSetup,
-      customer: CustomerAuthContext
-    ): Promise<string> => {
-      const productVariantId = await createProductVariantId(
-        setup.seller.sellerId,
-        setup.salesChannelId
-      )
-
-      const listing = await createListing(setup, {
-        print_id: `print_store_returns_query_${Date.now()}_${Math.floor(
-          Math.random() * 10000
-        )}`,
-        product_variant_id: productVariantId,
-        quantity_available: 1,
-        status: 'active'
-      })
-
-      const cart = await createCart(setup, customer)
-
-      const addListingResponse = await api.post(
-        `/store/carts/${cart.id}/listings`,
-        {
-          listing_id: listing.id,
-          quantity: 1,
-          metadata: {
-            source: 'store-returns-query-test'
-          }
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${customer.token}`,
-            ...setup.storeHeaders
-          },
-          validateStatus: () => true
-        }
-      )
-
-      expectStatus(addListingResponse, 200)
-
-      const shippingResponse = await api.post(
-        `/store/carts/${cart.id}/shipping-methods`,
-        {
-          option_id: setup.shippingOptionId,
-          data: {}
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${customer.token}`,
-            ...setup.storeHeaders
-          },
-          validateStatus: () => true
-        }
-      )
-
-      expectStatus(shippingResponse, 200)
-
-      await createPaymentCollectionAndSession(cart.id, {
-        Authorization: `Bearer ${customer.token}`,
-        ...setup.storeHeaders
-      })
-
-      const completeResponse = await api.post(
-        `/store/carts/${cart.id}/complete`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${customer.token}`,
-            ...setup.storeHeaders
-          },
-          validateStatus: () => true
-        }
-      )
-
-      expectStatus(completeResponse, 200)
-
-      const orderId = completeResponse.data.order_set?.orders?.[0]?.id
-
-      expect(orderId).toBeTruthy()
-
-      return orderId
-    }
-
-    const createReturnForOrder = async (orderId: string): Promise<string> => {
-      const container = getContainer()
-      const query = container.resolve<any>(ContainerRegistrationKeys.QUERY)
-      const orderService = container.resolve<any>(Modules.ORDER)
-
-      const {
-        data: [order]
-      } = await query.graph(
-        {
-          entity: 'order',
-          fields: ['id', 'version'],
-          filters: {
-            id: orderId
-          }
-        },
-        {
-          throwIfKeyNotFound: true
-        }
-      )
-
-      const created = await orderService.createReturns({
-        order_id: orderId,
-        order_version: order.version,
-        status: 'requested',
-        requested_at: new Date(),
-        refund_amount: 0,
-        metadata: {
-          source: 'store-returns-query-test'
-        }
-      })
-
-      const orderReturn = Array.isArray(created) ? created[0] : created
-
-      expect(orderReturn?.id).toBeTruthy()
-
-      return orderReturn.id
-    }
-
-    describe('Store Returns Query API', () => {
+    describe('Store Payment Collections Ownership API', () => {
       let marketplaceBase: MarketplaceBase
       let sellerSetup: MarketplaceSetup
       let customerA: CustomerAuthContext
       let customerB: CustomerAuthContext
-      let customerAOrderId: string
-      let customerBOrderId: string
-      let customerAReturnId: string
-      let customerBReturnId: string
+
+      const authHeaders = (customer: CustomerAuthContext) => ({
+        Authorization: `Bearer ${customer.token}`,
+        ...marketplaceBase.storeHeaders
+      })
+
+      const createActiveListing = async (quantityAvailable = 2) => {
+        const productVariantId = await createProductVariantId(
+          sellerSetup.seller.sellerId,
+          sellerSetup.salesChannelId
+        )
+
+        return createListing(sellerSetup, {
+          print_id: `print_store_payment_collections_ownership_${Date.now()}_${Math.floor(
+            Math.random() * 10000
+          )}`,
+          product_variant_id: productVariantId,
+          quantity_available: quantityAvailable,
+          status: 'active'
+        })
+      }
+
+      const addListingToCart = async (
+        cartId: string,
+        customer: CustomerAuthContext
+      ) => {
+        const listing = await createActiveListing()
+
+        const response = await api.post(
+          `/store/carts/${cartId}/listings`,
+          {
+            listing_id: listing.id,
+            quantity: 1,
+            metadata: {
+              source: 'store-payment-collections-ownership-test'
+            }
+          },
+          {
+            headers: authHeaders(customer),
+            validateStatus: () => true
+          }
+        )
+
+        expectStatus(response, 200)
+
+        return response.data.cart
+      }
+
+      const addShippingMethodToCart = async (
+        cartId: string,
+        customer: CustomerAuthContext
+      ) => {
+        const response = await api.post(
+          `/store/carts/${cartId}/shipping-methods`,
+          {
+            option_id: sellerSetup.shippingOptionId,
+            data: {}
+          },
+          {
+            headers: authHeaders(customer),
+            validateStatus: () => true
+          }
+        )
+
+        expectStatus(response, 200)
+
+        return response.data.cart
+      }
+
+      const createCartReadyForPayment = async (
+        customer: CustomerAuthContext
+      ) => {
+        const cart = await createCart(sellerSetup, customer)
+
+        await addListingToCart(cart.id, customer)
+        await addShippingMethodToCart(cart.id, customer)
+
+        return cart
+      }
+
+      const createPaymentCollection = async (
+        cartId: string,
+        customer?: CustomerAuthContext
+      ) => {
+        return api.post(
+          '/store/payment-collections',
+          {
+            cart_id: cartId
+          },
+          {
+            headers: customer
+              ? authHeaders(customer)
+              : marketplaceBase.storeHeaders,
+            validateStatus: () => true
+          }
+        )
+      }
+
+      const createPaymentSession = async (
+        paymentCollectionId: string,
+        customer?: CustomerAuthContext
+      ) => {
+        return api.post(
+          `/store/payment-collections/${paymentCollectionId}/payment-sessions`,
+          {
+            provider_id: 'pp_system_default',
+            data: {}
+          },
+          {
+            headers: customer
+              ? authHeaders(customer)
+              : marketplaceBase.storeHeaders,
+            validateStatus: () => true
+          }
+        )
+      }
 
       beforeEach(async () => {
         const uniqueSeed = `${Date.now()}_${Math.floor(Math.random() * 10000)}`
@@ -571,88 +562,106 @@ medusaIntegrationTestRunner({
         )
 
         customerA = await createCustomerAuthContext(
-          `customer-a-return-${uniqueSeed}@example.com`
+          `customer-a-payment-ownership-${uniqueSeed}@example.com`
         )
 
         customerB = await createCustomerAuthContext(
-          `customer-b-return-${uniqueSeed}@example.com`
+          `customer-b-payment-ownership-${uniqueSeed}@example.com`
         )
-
-        customerAOrderId = await completeCartWithListingAndReturnOrderId(
-          sellerSetup,
-          customerA
-        )
-
-        customerBOrderId = await completeCartWithListingAndReturnOrderId(
-          sellerSetup,
-          customerB
-        )
-
-        customerAReturnId = await createReturnForOrder(customerAOrderId)
-        customerBReturnId = await createReturnForOrder(customerBOrderId)
       })
 
-      it('lists only returns that belong to the authenticated customer', async () => {
-        const response = await api.get('/store/returns', {
-          headers: {
-            Authorization: `Bearer ${customerA.token}`,
-            ...marketplaceBase.storeHeaders
-          },
-          validateStatus: () => true
-        })
+      it('allows an authenticated customer to create a payment collection for their own bound cart', async () => {
+        const cart = await createCartReadyForPayment(customerA)
+
+        const response = await createPaymentCollection(cart.id, customerA)
 
         expectStatus(response, 200)
-        expect(Array.isArray(response.data.returns)).toBe(true)
-
-        const ids = response.data.returns.map((orderReturn: any) => {
-          return orderReturn.id
-        })
-
-        expect(ids).toContain(customerAReturnId)
-        expect(ids).not.toContain(customerBReturnId)
+        expect(response.data.payment_collection?.id).toBeTruthy()
       })
 
-      it('retrieves own return by id', async () => {
-        const response = await api.get(`/store/returns/${customerAReturnId}`, {
-          headers: {
-            Authorization: `Bearer ${customerA.token}`,
-            ...marketplaceBase.storeHeaders
-          },
-          validateStatus: () => true
-        })
+      it('rejects creating a payment collection for another customer bound cart', async () => {
+        const cart = await createCartReadyForPayment(customerB)
 
-        expectStatus(response, 200)
-        expect(response.data.return?.id).toBe(customerAReturnId)
-      })
-
-      it('rejects retrieving a return that belongs to another customer', async () => {
-        const response = await api.get(`/store/returns/${customerBReturnId}`, {
-          headers: {
-            Authorization: `Bearer ${customerA.token}`,
-            ...marketplaceBase.storeHeaders
-          },
-          validateStatus: () => true
-        })
+        const response = await createPaymentCollection(cart.id, customerA)
 
         expect([403, 404]).toContain(response.status)
       })
 
-      it('requires authentication on list and detail routes', async () => {
-        const listResponse = await api.get('/store/returns', {
-          headers: marketplaceBase.storeHeaders,
-          validateStatus: () => true
-        })
+      it('rejects unauthenticated payment collection creation for a customer-bound cart', async () => {
+        const cart = await createCartReadyForPayment(customerA)
 
-        const detailResponse = await api.get(
-          `/store/returns/${customerAReturnId}`,
-          {
-            headers: marketplaceBase.storeHeaders,
-            validateStatus: () => true
-          }
+        const response = await createPaymentCollection(cart.id)
+
+        expect([401, 403, 404]).toContain(response.status)
+      })
+
+      it('allows an authenticated customer to create a payment session for their own payment collection', async () => {
+        const cart = await createCartReadyForPayment(customerA)
+
+        const collectionResponse = await createPaymentCollection(
+          cart.id,
+          customerA
         )
 
-        expect([401, 403]).toContain(listResponse.status)
-        expect([401, 403]).toContain(detailResponse.status)
+        expectStatus(collectionResponse, 200)
+
+        const paymentCollectionId =
+          collectionResponse.data.payment_collection?.id
+
+        expect(paymentCollectionId).toBeTruthy()
+
+        const sessionResponse = await createPaymentSession(
+          paymentCollectionId,
+          customerA
+        )
+
+        expectStatus(sessionResponse, 200)
+        expect(sessionResponse.data.payment_collection?.id).toBe(
+          paymentCollectionId
+        )
+      })
+
+      it('rejects payment session creation for another customer payment collection', async () => {
+        const cart = await createCartReadyForPayment(customerB)
+
+        const collectionResponse = await createPaymentCollection(
+          cart.id,
+          customerB
+        )
+
+        expectStatus(collectionResponse, 200)
+
+        const paymentCollectionId =
+          collectionResponse.data.payment_collection?.id
+
+        expect(paymentCollectionId).toBeTruthy()
+
+        const sessionResponse = await createPaymentSession(
+          paymentCollectionId,
+          customerA
+        )
+
+        expect([403, 404]).toContain(sessionResponse.status)
+      })
+
+      it('rejects unauthenticated payment session creation for a customer-bound payment collection', async () => {
+        const cart = await createCartReadyForPayment(customerA)
+
+        const collectionResponse = await createPaymentCollection(
+          cart.id,
+          customerA
+        )
+
+        expectStatus(collectionResponse, 200)
+
+        const paymentCollectionId =
+          collectionResponse.data.payment_collection?.id
+
+        expect(paymentCollectionId).toBeTruthy()
+
+        const sessionResponse = await createPaymentSession(paymentCollectionId)
+
+        expect([401, 403, 404]).toContain(sessionResponse.status)
       })
     })
   }
