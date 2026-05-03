@@ -6,14 +6,28 @@ import {
   MedusaError
 } from '@medusajs/framework/utils'
 
-export const checkCartCustomerOwnershipIfBound = () => {
+type CheckCartCustomerOwnershipIfBoundOptions<Body> = {
+  cartId?: (req: AuthenticatedMedusaRequest<Body>) => string | undefined
+}
+
+export const checkCartCustomerOwnershipIfBound = <Body = unknown>({
+  cartId = (req) => req.params.id
+}: CheckCartCustomerOwnershipIfBoundOptions<Body> = {}) => {
   return async (
-    req: AuthenticatedMedusaRequest,
+    req: AuthenticatedMedusaRequest<Body>,
     res: MedusaResponse,
     next: NextFunction
   ) => {
     const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
-    const cartId = req.params.id
+    const resolvedCartId = cartId(req)
+
+    if (!resolvedCartId) {
+      res.status(404).json({
+        message: 'Cart not found',
+        type: MedusaError.Types.NOT_FOUND
+      })
+      return
+    }
 
     const {
       data: [cart]
@@ -21,13 +35,13 @@ export const checkCartCustomerOwnershipIfBound = () => {
       entity: 'cart',
       fields: ['id', 'customer_id'],
       filters: {
-        id: cartId
+        id: resolvedCartId
       }
     })
 
     if (!cart) {
       res.status(404).json({
-        message: `Cart with id: ${cartId} not found`,
+        message: `Cart with id: ${resolvedCartId} not found`,
         type: MedusaError.Types.NOT_FOUND
       })
       return
@@ -38,7 +52,7 @@ export const checkCartCustomerOwnershipIfBound = () => {
       cart.customer_id !== req.auth_context?.actor_id
     ) {
       res.status(404).json({
-        message: `Cart with id: ${cartId} not found`,
+        message: `Cart with id: ${resolvedCartId} not found`,
         type: MedusaError.Types.NOT_FOUND
       })
       return
