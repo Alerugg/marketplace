@@ -1,8 +1,9 @@
 import {
+  MiddlewareRoute,
+  authenticate,
   validateAndTransformBody,
   validateAndTransformQuery
 } from '@medusajs/framework'
-import { MiddlewareRoute } from '@medusajs/medusa'
 
 import customerWishlist from '../../../links/customer-wishlist'
 import { checkCustomerResourceOwnershipByResourceId } from '../../../shared/infra/http/middlewares/check-customer-ownership'
@@ -14,6 +15,7 @@ export const storeWishlistMiddlewares: MiddlewareRoute[] = [
     method: ['GET'],
     matcher: '/store/wishlist',
     middlewares: [
+      authenticate('customer', ['bearer', 'session']),
       validateAndTransformQuery(
         StoreGetWishlistsParams,
         storeWishlistQueryConfig.list
@@ -24,6 +26,7 @@ export const storeWishlistMiddlewares: MiddlewareRoute[] = [
     method: ['POST'],
     matcher: '/store/wishlist',
     middlewares: [
+      authenticate('customer', ['bearer', 'session']),
       validateAndTransformQuery(
         StoreGetWishlistsParams,
         storeWishlistQueryConfig.retrieve
@@ -35,6 +38,7 @@ export const storeWishlistMiddlewares: MiddlewareRoute[] = [
     method: ['DELETE'],
     matcher: '/store/wishlist/:id/product/:reference_id',
     middlewares: [
+      authenticate('customer', ['bearer', 'session']),
       checkCustomerResourceOwnershipByResourceId({
         entryPoint: customerWishlist.entryPoint,
         filterField: 'wishlist_id'
