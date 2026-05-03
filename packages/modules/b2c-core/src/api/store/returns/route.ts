@@ -1,7 +1,14 @@
+import { createAndCompleteReturnOrderWorkflow } from '@medusajs/core-flows'
+import { HttpTypes } from '@medusajs/types'
 import { AuthenticatedMedusaRequest, MedusaResponse } from '@medusajs/framework'
-import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
+import {
+  ContainerRegistrationKeys,
+  MedusaError
+} from '@medusajs/framework/utils'
 
 import { storeReturnFields } from './query-config'
+
+type StoreCreateReturnBody = HttpTypes.StoreCreateReturn
 
 /**
  * @oas [get] /store/returns
@@ -9,68 +16,6 @@ import { storeReturnFields } from './query-config'
  * summary: "List Returns"
  * description: "Retrieves a list of returns for the authenticated customer."
  * x-authenticated: true
- * parameters:
- *   - name: offset
- *     in: query
- *     schema:
- *       type: number
- *       default: 0
- *     required: false
- *     description: The number of items to skip before starting to collect the result set.
- *   - name: limit
- *     in: query
- *     schema:
- *       type: number
- *       default: 50
- *     required: false
- *     description: The number of items to return.
- *   - name: fields
- *     in: query
- *     schema:
- *       type: string
- *     required: false
- *     description: Comma-separated fields to include in the response.
- * responses:
- *   "200":
- *     description: OK
- *     content:
- *       application/json:
- *         schema:
- *           type: object
- *           properties:
- *             returns:
- *               type: array
- *               items:
- *                 $ref: "#/components/schemas/StoreReturn"
- *             count:
- *               type: integer
- *               description: The total number of returns available
- *             offset:
- *               type: integer
- *               description: The number of items skipped before these items
- *             limit:
- *               type: integer
- *               description: The number of items per page
- *   "401":
- *     description: Unauthorized
- *     content:
- *       application/json:
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: "Unauthorized"
- *   "403":
- *     description: Forbidden
- *     content:
- *       application/json:
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: "Forbidden"
  * tags:
  *   - Store
  * security:
@@ -102,5 +47,53 @@ export async function GET(
     count: metadata?.count,
     offset: metadata?.skip,
     limit: metadata?.take
+  })
+}
+
+/**
+ * @oas [post] /store/returns
+ * operationId: "StoreCreateReturn"
+ * summary: "Create Return"
+ * description: "Creates a return for an order owned by the authenticated customer."
+ * x-authenticated: true
+ * tags:
+ *   - Store
+ * security:
+ *   - api_token: []
+ *   - cookie_auth: []
+ */
+export async function POST(
+  req: AuthenticatedMedusaRequest<StoreCreateReturnBody>,
+  res: MedusaResponse
+) {
+  const input = req.validatedBody as StoreCreateReturnBody
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+
+  const {
+    data: [order]
+  } = await query.graph({
+    entity: 'order',
+    fields: ['id', 'customer_id'],
+    filters: {
+      id: input.order_id
+    }
+  })
+
+  if (!order || order.customer_id !== req.auth_context.actor_id) {
+    res.status(404).json({
+      message: `Order with id: ${input.order_id} not found`,
+      type: MedusaError.Types.NOT_FOUND
+    })
+    return
+  }
+
+  const workflow = createAndCompleteReturnOrderWorkflow(req.scope)
+
+  const { result } = await workflow.run({
+    input
+  })
+
+  res.status(200).json({
+    return: result
   })
 }
