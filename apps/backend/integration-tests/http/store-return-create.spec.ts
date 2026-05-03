@@ -462,7 +462,10 @@ medusaIntegrationTestRunner({
           }
         },
         {
-          headers: setup.storeHeaders,
+          headers: {
+            Authorization: `Bearer ${customer.token}`,
+            ...setup.storeHeaders
+          },
           validateStatus: () => true
         }
       )
@@ -476,20 +479,29 @@ medusaIntegrationTestRunner({
           data: {}
         },
         {
-          headers: setup.storeHeaders,
+          headers: {
+            Authorization: `Bearer ${customer.token}`,
+            ...setup.storeHeaders
+          },
           validateStatus: () => true
         }
       )
 
       expectStatus(shippingResponse, 200)
 
-      await createPaymentCollectionAndSession(cart.id, setup.storeHeaders)
+      await createPaymentCollectionAndSession(cart.id, {
+        Authorization: `Bearer ${customer.token}`,
+        ...setup.storeHeaders
+      })
 
       const completeResponse = await api.post(
         `/store/carts/${cart.id}/complete`,
         {},
         {
-          headers: setup.storeHeaders,
+          headers: {
+            Authorization: `Bearer ${customer.token}`,
+            ...setup.storeHeaders
+          },
           validateStatus: () => true
         }
       )
