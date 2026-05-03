@@ -1,5 +1,8 @@
 import { AuthenticatedMedusaRequest, MedusaResponse } from '@medusajs/framework'
-import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
+import {
+  ContainerRegistrationKeys,
+  MedusaError
+} from '@medusajs/framework/utils'
 
 import { storeReturnFields } from '../query-config'
 
@@ -22,7 +25,17 @@ export async function GET(
     }
   })
 
+  const orderReturn = order?.returns?.[0]
+
+  if (!orderReturn) {
+    res.status(404).json({
+      message: `Return with id: ${req.params.id} not found`,
+      type: MedusaError.Types.NOT_FOUND
+    })
+    return
+  }
+
   res.json({
-    return: order.returns[0]
+    return: orderReturn
   })
 }
