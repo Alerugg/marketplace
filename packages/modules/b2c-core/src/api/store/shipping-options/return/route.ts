@@ -1,4 +1,8 @@
 import { AuthenticatedMedusaRequest, MedusaResponse } from '@medusajs/framework'
+import {
+  ContainerRegistrationKeys,
+  MedusaError
+} from '@medusajs/framework/utils'
 
 import { listSellerReturnShippingOptionsForOrderWorkflow } from '../../../../workflows/cart/workflows'
 import { StoreGetReturnShippingOptionsParamsType } from '../validators'
@@ -55,6 +59,25 @@ export const GET = async (
   res: MedusaResponse
 ) => {
   const { order_id } = req.validatedQuery
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+
+  const {
+    data: [order]
+  } = await query.graph({
+    entity: 'order',
+    fields: ['id', 'customer_id'],
+    filters: {
+      id: order_id
+    }
+  })
+
+  if (!order || order.customer_id !== req.auth_context.actor_id) {
+    res.status(404).json({
+      message: `Order with id: ${order_id} not found`,
+      type: MedusaError.Types.NOT_FOUND
+    })
+    return
+  }
 
   const { result: shippingOptions } =
     await listSellerReturnShippingOptionsForOrderWorkflow.run({
