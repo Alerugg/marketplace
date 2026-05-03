@@ -437,7 +437,7 @@ medusaIntegrationTestRunner({
       let customerB: CustomerAuthContext
 
       type CartActionCase = {
-        method: 'post' | 'delete'
+        method: 'get' | 'post' | 'delete'
         path: string
         body?: Record<string, any>
       }
@@ -525,7 +525,14 @@ medusaIntegrationTestRunner({
       ) => {
         const config = {
           headers: customer ? authHeaders(customer) : marketplaceBase.storeHeaders,
-          validateStatus: () => true
+          validateStatus: () => true,
+          ...(actionCase.method === 'delete' && actionCase.body
+            ? { data: actionCase.body }
+            : {})
+        }
+
+        if (actionCase.method === 'get') {
+          return api.get(actionCase.path, config)
         }
 
         if (actionCase.method === 'post') {
@@ -551,6 +558,65 @@ medusaIntegrationTestRunner({
         customerB = await createCustomerAuthContext(
           `customer-b-cart-ownership-${uniqueSeed}@example.com`
         )
+      })
+
+      it('allows the authenticated customer to use standard bound cart routes', async () => {
+        const cart = await createCart(sellerSetup, customerA)
+        const productVariantId = await createProductVariantId(
+          sellerSetup.seller.sellerId,
+          sellerSetup.salesChannelId
+        )
+
+        const readResponse = await api.get(`/store/carts/${cart.id}`, {
+          headers: authHeaders(customerA),
+          validateStatus: () => true
+        })
+
+        expectStatus(readResponse, 200)
+
+        const updateCartResponse = await api.post(
+          `/store/carts/${cart.id}`,
+          {
+            email: customerA.email
+          },
+          {
+            headers: authHeaders(customerA),
+            validateStatus: () => true
+          }
+        )
+
+        expectStatus(updateCartResponse, 200)
+
+        const addLineItemResponse = await api.post(
+          `/store/carts/${cart.id}/line-items`,
+          {
+            variant_id: productVariantId,
+            quantity: 1
+          },
+          {
+            headers: authHeaders(customerA),
+            validateStatus: () => true
+          }
+        )
+
+        expectStatus(addLineItemResponse, 200)
+
+        const lineItemId = addLineItemResponse.data.cart?.items?.[0]?.id
+
+        expect(lineItemId).toBeTruthy()
+
+        const updateLineItemResponse = await api.post(
+          `/store/carts/${cart.id}/line-items/${lineItemId}`,
+          {
+            quantity: 1
+          },
+          {
+            headers: authHeaders(customerA),
+            validateStatus: () => true
+          }
+        )
+
+        expectStatus(updateLineItemResponse, 200)
       })
 
       it('allows the authenticated customer to mutate and complete their own bound cart', async () => {
@@ -579,8 +645,62 @@ medusaIntegrationTestRunner({
       it('rejects another customer across bound cart mutation routes', async () => {
         const cart = await createCart(sellerSetup, customerB)
         const listing = await createActiveListing()
+        const productVariantId = await createProductVariantId(
+          sellerSetup.seller.sellerId,
+          sellerSetup.salesChannelId
+        )
 
         const actionCases: CartActionCase[] = [
+          {
+            method: 'get',
+            path: `/store/carts/${cart.id}`
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}`,
+            body: {
+              email: 'foreign-cart-update@example.com'
+            }
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}/customer`,
+            body: {}
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}/line-items`,
+            body: {
+              variant_id: productVariantId,
+              quantity: 1
+            }
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}/line-items/line_item_foreign`,
+            body: {
+              quantity: 1
+            }
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}/promotions`,
+            body: {
+              promo_codes: []
+            }
+          },
+          {
+            method: 'delete',
+            path: `/store/carts/${cart.id}/promotions`,
+            body: {
+              promo_codes: []
+            }
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}/taxes`,
+            body: {}
+          },
           {
             method: 'post',
             path: `/store/carts/${cart.id}/listings`,
@@ -634,8 +754,62 @@ medusaIntegrationTestRunner({
       it('rejects unauthenticated access across bound cart mutation routes', async () => {
         const cart = await createCart(sellerSetup, customerA)
         const listing = await createActiveListing()
+        const productVariantId = await createProductVariantId(
+          sellerSetup.seller.sellerId,
+          sellerSetup.salesChannelId
+        )
 
         const actionCases: CartActionCase[] = [
+          {
+            method: 'get',
+            path: `/store/carts/${cart.id}`
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}`,
+            body: {
+              email: 'unauthenticated-cart-update@example.com'
+            }
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}/customer`,
+            body: {}
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}/line-items`,
+            body: {
+              variant_id: productVariantId,
+              quantity: 1
+            }
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}/line-items/line_item_unauthenticated`,
+            body: {
+              quantity: 1
+            }
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}/promotions`,
+            body: {
+              promo_codes: []
+            }
+          },
+          {
+            method: 'delete',
+            path: `/store/carts/${cart.id}/promotions`,
+            body: {
+              promo_codes: []
+            }
+          },
+          {
+            method: 'post',
+            path: `/store/carts/${cart.id}/taxes`,
+            body: {}
+          },
           {
             method: 'post',
             path: `/store/carts/${cart.id}/listings`,
