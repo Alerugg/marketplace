@@ -147,3 +147,49 @@ export const fetchStoreListing = async (id) => {
 
   return response.json()
 }
+
+export const storefrontRegionId = process.env.NEXT_PUBLIC_MEDUSA_REGION_ID || ""
+
+export const createStoreCart = async () => {
+  if (!storefrontRegionId) {
+    throw new Error("Missing NEXT_PUBLIC_MEDUSA_REGION_ID")
+  }
+
+  const response = await fetch(`${backendUrl}/store/carts`, {
+    method: "POST",
+    headers: storeHeaders(),
+    body: JSON.stringify({
+      region_id: storefrontRegionId,
+      metadata: {
+        source: "dontripit-storefront"
+      }
+    })
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to create cart: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const addListingToCart = async ({ cartId, listingId, quantity }) => {
+  const response = await fetch(`${backendUrl}/store/carts/${cartId}/listings`, {
+    method: "POST",
+    headers: storeHeaders(),
+    body: JSON.stringify({
+      listing_id: listingId,
+      quantity,
+      metadata: {
+        source: "dontripit-storefront"
+      }
+    })
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to add listing to cart: ${response.status}`)
+  }
+
+  return response.json()
+}

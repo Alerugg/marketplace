@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
+import AddToCartForm from "../../../components/AddToCartForm"
 import Header from "../../../components/Header"
 import {
   fetchStoreListing,
@@ -54,9 +55,7 @@ export default async function ListingDetailPage({ params }) {
               <span className="muted">Current price</span>
               <strong>{formatMoney(listing.price_amount, listing.currency_code)}</strong>
             </div>
-            <button type="button" disabled>
-              Add to cart soon
-            </button>
+            <AddToCartForm listing={listing} />
           </div>
 
           <div className="detail-list">
