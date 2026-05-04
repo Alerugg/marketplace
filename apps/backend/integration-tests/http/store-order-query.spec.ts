@@ -39,19 +39,20 @@ type MarketplaceBase = {
 type MarketplaceSetup = MarketplaceBase & {
   seller: SellerAuthContext
   shippingOptionId: string
+  stockLocationId: string
 }
 
 const defaultListingPayload = {
-  print_id: 'print_store_order_set_query_001',
+  print_id: 'print_store_return_create_001',
   price_amount: 19.99,
   currency_code: 'eur',
   condition_code: 'near_mint',
   quantity_available: 1,
   status: 'active',
-  seller_note: 'store order set query test listing',
+  seller_note: 'store return create test listing',
   photos: ['https://example.com/a.jpg'],
   location_country: 'ES',
-  shipping_profile_id: 'sp_store_order_set_query_123'
+  shipping_profile_id: 'sp_store_return_create_123'
 }
 
 jest.setTimeout(120 * 1000)
@@ -110,7 +111,7 @@ medusaIntegrationTestRunner({
 
       const seller = await sellerService.createSellers({
         name: sellerName,
-        handle: `store-order-set-query-seller-${unique}`,
+        handle: `store-return-create-seller-${unique}`,
         store_status: StoreStatus.ACTIVE
       })
 
@@ -149,7 +150,7 @@ medusaIntegrationTestRunner({
         '/vendor/shipping-profiles',
         {
           name,
-          type: 'store_order_set_query'
+          type: 'store_return_create'
         },
         {
           headers: {
@@ -200,7 +201,7 @@ medusaIntegrationTestRunner({
         input: {
           data: [
             {
-              name: `Europe Store Order Set ${sellerLabel} ${unique}`,
+              name: `Europe Store Return Create ${sellerLabel} ${unique}`,
               fulfillment_set_id: fulfillmentSetId,
               geo_zones: [
                 {
@@ -224,13 +225,13 @@ medusaIntegrationTestRunner({
       const unique = `${Date.now()}_${Math.floor(Math.random() * 10000)}`
 
       const seller = await createSellerAuthContext(
-        `seller-store-order-set-${sellerLabel}-${unique}@example.com`,
-        `Seller Store Order Set ${sellerLabel} ${unique}`
+        `seller-store-return-create-${sellerLabel}-${unique}@example.com`,
+        `Seller Store Return Create ${sellerLabel} ${unique}`
       )
 
       await createSellerShippingProfile(
         seller,
-        `Store Order Set Shipping Profile ${sellerLabel} ${unique}`
+        `Store Return Create Shipping Profile ${sellerLabel} ${unique}`
       )
 
       const stockLocation = await createSellerStockLocation(
@@ -259,7 +260,8 @@ medusaIntegrationTestRunner({
       return {
         ...base,
         seller,
-        shippingOptionId: shippingOption.id
+        shippingOptionId: shippingOption.id,
+        stockLocationId: stockLocation.id
       }
     }
 
@@ -278,8 +280,8 @@ medusaIntegrationTestRunner({
         input: {
           products: [
             {
-              title: `Store Order Set Product ${unique}`,
-              handle: `store-order-set-product-${unique.replace(/_/g, '-')}`,
+              title: `Store Return Create Product ${unique}`,
+              handle: `store-return-create-product-${unique.replace(/_/g, '-')}`,
               status: 'published',
               sales_channels: [
                 {
@@ -356,7 +358,7 @@ medusaIntegrationTestRunner({
         region_id: setup.regionId,
         sales_channel_id: setup.salesChannelId,
         customer_id: customer.customerId,
-        email: customer.email || `buyer-store-order-set-${unique}@example.com`,
+        email: customer.email || `buyer-store-return-create-${unique}@example.com`,
         shipping_address: address,
         billing_address: address
       })
@@ -430,7 +432,7 @@ medusaIntegrationTestRunner({
       return paymentSessionResponse.data.payment_collection
     }
 
-    const completeCartWithListingAndReturnOrderSetId = async (
+    const completeCartWithListingAndReturnOrderId = async (
       setup: MarketplaceSetup,
       customer: CustomerAuthContext
     ): Promise<string> => {
@@ -440,7 +442,7 @@ medusaIntegrationTestRunner({
       )
 
       const listing = await createListing(setup, {
-        print_id: `print_store_order_set_query_${Date.now()}_${Math.floor(
+        print_id: `print_store_return_create_${Date.now()}_${Math.floor(
           Math.random() * 10000
         )}`,
         product_variant_id: productVariantId,
@@ -456,7 +458,7 @@ medusaIntegrationTestRunner({
           listing_id: listing.id,
           quantity: 1,
           metadata: {
-            source: 'store-order-set-query-test'
+            source: 'store-return-create-test'
           }
         },
         {
@@ -506,20 +508,20 @@ medusaIntegrationTestRunner({
 
       expectStatus(completeResponse, 200)
 
-      const orderSetId = completeResponse.data.order_set?.id
+      const orderId = completeResponse.data.order_set?.orders?.[0]?.id
 
-      expect(orderSetId).toBeTruthy()
+      expect(orderId).toBeTruthy()
 
-      return orderSetId
+      return orderId
     }
 
-    describe('Store Order Set Query API', () => {
+    describe('Store Order Query API', () => {
       let marketplaceBase: MarketplaceBase
       let sellerSetup: MarketplaceSetup
       let customerA: CustomerAuthContext
       let customerB: CustomerAuthContext
-      let customerAOrderSetId: string
-      let customerBOrderSetId: string
+      let customerAOrderId: string
+      let customerBOrderId: string
 
       beforeEach(async () => {
         const uniqueSeed = `${Date.now()}_${Math.floor(Math.random() * 10000)}`
@@ -531,26 +533,26 @@ medusaIntegrationTestRunner({
         )
 
         customerA = await createCustomerAuthContext(
-          `customer-a-order-set-${uniqueSeed}@example.com`
+          `customer-a-order-query-${uniqueSeed}@example.com`
         )
 
         customerB = await createCustomerAuthContext(
-          `customer-b-order-set-${uniqueSeed}@example.com`
+          `customer-b-order-query-${uniqueSeed}@example.com`
         )
 
-        customerAOrderSetId = await completeCartWithListingAndReturnOrderSetId(
+        customerAOrderId = await completeCartWithListingAndReturnOrderId(
           sellerSetup,
           customerA
         )
 
-        customerBOrderSetId = await completeCartWithListingAndReturnOrderSetId(
+        customerBOrderId = await completeCartWithListingAndReturnOrderId(
           sellerSetup,
           customerB
         )
       })
 
-      it('lists only order sets that belong to the authenticated customer', async () => {
-        const response = await api.get('/store/order-set', {
+      it('retrieves own order by id', async () => {
+        const response = await api.get(`/store/orders/${customerAOrderId}`, {
           headers: {
             Authorization: `Bearer ${customerA.token}`,
             ...marketplaceBase.storeHeaders
@@ -559,61 +561,28 @@ medusaIntegrationTestRunner({
         })
 
         expectStatus(response, 200)
-        expect(Array.isArray(response.data.order_sets)).toBe(true)
-
-        const ids = response.data.order_sets.map((orderSet: any) => orderSet.id)
-
-        expect(ids).toContain(customerAOrderSetId)
-        expect(ids).not.toContain(customerBOrderSetId)
+        expect(response.data.order?.id).toBe(customerAOrderId)
       })
 
-      it('retrieves own order set by id', async () => {
-        const response = await api.get(
-          `/store/order-set/${customerAOrderSetId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${customerA.token}`,
-              ...marketplaceBase.storeHeaders
-            },
-            validateStatus: () => true
-          }
-        )
-
-        expectStatus(response, 200)
-        expect(response.data.order_set?.id).toBe(customerAOrderSetId)
-      })
-
-      it('rejects retrieving an order set that belongs to another customer', async () => {
-        const response = await api.get(
-          `/store/order-set/${customerBOrderSetId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${customerA.token}`,
-              ...marketplaceBase.storeHeaders
-            },
-            validateStatus: () => true
-          }
-        )
+      it('rejects retrieving another customer order by id', async () => {
+        const response = await api.get(`/store/orders/${customerBOrderId}`, {
+          headers: {
+            Authorization: `Bearer ${customerA.token}`,
+            ...marketplaceBase.storeHeaders
+          },
+          validateStatus: () => true
+        })
 
         expect([403, 404]).toContain(response.status)
       })
 
-      it('requires authentication on list and detail routes', async () => {
-        const listResponse = await api.get('/store/order-set', {
+      it('requires authentication when retrieving order by id', async () => {
+        const response = await api.get(`/store/orders/${customerAOrderId}`, {
           headers: marketplaceBase.storeHeaders,
           validateStatus: () => true
         })
 
-        const detailResponse = await api.get(
-          `/store/order-set/${customerAOrderSetId}`,
-          {
-            headers: marketplaceBase.storeHeaders,
-            validateStatus: () => true
-          }
-        )
-
-        expect([401, 403]).toContain(listResponse.status)
-        expect([401, 403]).toContain(detailResponse.status)
+        expect([401, 403]).toContain(response.status)
       })
     })
   }
