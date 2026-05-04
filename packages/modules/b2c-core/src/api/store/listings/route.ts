@@ -1,6 +1,8 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/framework'
 import { ContainerRegistrationKeys } from '@medusajs/framework/utils'
 
+import { enrichStoreListingsWithCatalog } from './catalog-enrichment'
+
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
@@ -14,8 +16,10 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     pagination: req.queryConfig.pagination
   })
 
+  const enrichedListings = await enrichStoreListingsWithCatalog(listings)
+
   res.json({
-    listings,
+    listings: enrichedListings,
     count: metadata?.count,
     offset: metadata?.skip,
     limit: metadata?.take
