@@ -230,6 +230,114 @@ medusaIntegrationTestRunner({
         expect(response.data.listing.status).toBe('active')
       })
 
+      it('adds catalog enrichment when catalog API config is available', async () => {
+        const previousCatalogApiUrl = process.env.CATALOG_API_URL
+        const previousCatalogApiKey = process.env.CATALOG_API_KEY
+
+        process.env.CATALOG_API_URL = 'http://catalog.example.test'
+        process.env.CATALOG_API_KEY = 'catalog-test-key'
+
+        const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            prints: [
+              {
+                query: sellerAActivePrintId,
+                found: true,
+                print_id: sellerAActivePrintId,
+                catalog: {
+                  print_id: sellerAActivePrintId,
+                  game: 'pokemon',
+                  game_slug: 'pokemon',
+                  game_name: 'Pokémon',
+                  card_id: 101,
+                  card_name: 'Resolve Pikachu',
+                  set_id: 201,
+                  set_code: 'SV1',
+                  set_name: 'Scarlet & Violet',
+                  collector_number: '001',
+                  language: 'en',
+                  rarity: 'rare',
+                  is_foil: false,
+                  variant: 'default',
+                  image_url: 'https://example.com/pikachu.jpg',
+                  primary_image_url: 'https://example.com/pikachu.jpg',
+                  print_key: 'pokemon:sv1:001:en:default',
+                  external_ids: {
+                    identifiers: {
+                      catalog_test: 'resolve-external-001'
+                    }
+                  }
+                }
+              }
+            ]
+          })
+        } as any)
+
+        try {
+          const listResponse = await api.get('/store/listings', {
+            headers: storeHeaders,
+            params: {
+              print_id: sellerAActivePrintId
+            }
+          })
+
+          expect(listResponse.status).toBe(200)
+
+          const listing = listResponse.data.listings.find(
+            (item: any) => item.id === sellerAActiveListingId
+          )
+
+          expect(listing).toBeTruthy()
+          expect(listing.catalog).toBeTruthy()
+          expect(listing.catalog.card_name).toBe('Resolve Pikachu')
+          expect(listing.catalog.game_slug).toBe('pokemon')
+          expect(listing.catalog.set_code).toBe('SV1')
+          expect(listing.catalog.collector_number).toBe('001')
+          expect(listing.catalog.primary_image_url).toBe(
+            'https://example.com/pikachu.jpg'
+          )
+
+          const detailResponse = await api.get(
+            `/store/listings/${sellerAActiveListingId}`,
+            {
+              headers: storeHeaders
+            }
+          )
+
+          expect(detailResponse.status).toBe(200)
+          expect(detailResponse.data.listing.catalog.card_name).toBe(
+            'Resolve Pikachu'
+          )
+
+          expect(fetchMock).toHaveBeenCalled()
+          expect(fetchMock.mock.calls[0][0]).toBe(
+            'http://catalog.example.test/api/prints/resolve'
+          )
+
+          const requestInit = fetchMock.mock.calls[0][1] as any
+          expect(requestInit.method).toBe('POST')
+          expect(requestInit.headers['X-API-Key']).toBe('catalog-test-key')
+          expect(JSON.parse(requestInit.body)).toEqual({
+            print_ids: [sellerAActivePrintId]
+          })
+        } finally {
+          fetchMock.mockRestore()
+
+          if (previousCatalogApiUrl === undefined) {
+            delete process.env.CATALOG_API_URL
+          } else {
+            process.env.CATALOG_API_URL = previousCatalogApiUrl
+          }
+
+          if (previousCatalogApiKey === undefined) {
+            delete process.env.CATALOG_API_KEY
+          } else {
+            process.env.CATALOG_API_KEY = previousCatalogApiKey
+          }
+        }
+      })
+
       it('does not retrieve a non-active listing publicly', async () => {
         const response = await api.get(`/store/listings/${sellerADraftListingId}`, {
           headers: storeHeaders,
