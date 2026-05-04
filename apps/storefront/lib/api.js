@@ -23,8 +23,25 @@ export const formatMoney = (amount, currencyCode) => {
   }).format(numericAmount)
 }
 
+export const formatCondition = (conditionCode) => {
+  return String(conditionCode || "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
 export const listingTitle = (listing) => {
   return listing?.catalog?.card_name || listing?.print_id || "Unknown card"
+}
+
+export const listingSubtitle = (listing) => {
+  const catalog = listing?.catalog || {}
+  const parts = [
+    catalog.game_name || catalog.game_slug,
+    catalog.set_code,
+    catalog.collector_number ? `#${catalog.collector_number}` : null
+  ].filter(Boolean)
+
+  return parts.length ? parts.join(" · ") : "Catalog pending"
 }
 
 export const listingImage = (listing) => {
@@ -36,8 +53,73 @@ export const listingImage = (listing) => {
   )
 }
 
+export const normalizeFilterValue = (value) => {
+  return String(value || "").trim().toLowerCase()
+}
+
+export const filterAndSortListings = (listings, filters = {}) => {
+  const q = normalizeFilterValue(filters.q)
+  const game = normalizeFilterValue(filters.game)
+  const condition = normalizeFilterValue(filters.condition)
+  const sort = normalizeFilterValue(filters.sort || "newest")
+
+  const filtered = listings.filter((listing) => {
+    const catalog = listing.catalog || {}
+
+    const haystack = [
+      catalog.card_name,
+      catalog.game,
+      catalog.game_slug,
+      catalog.game_name,
+      catalog.set_code,
+      catalog.set_name,
+      catalog.collector_number,
+      catalog.rarity,
+      listing.print_id,
+      listing.condition_code,
+      listing.seller_note
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+
+    const listingGame = normalizeFilterValue(catalog.game_slug || catalog.game || catalog.game_name)
+    const listingCondition = normalizeFilterValue(listing.condition_code)
+
+    if (q && !haystack.includes(q)) {
+      return false
+    }
+
+    if (game && listingGame !== game) {
+      return false
+    }
+
+    if (condition && listingCondition !== condition) {
+      return false
+    }
+
+    return true
+  })
+
+  return filtered.sort((a, b) => {
+    if (sort === "price_asc") {
+      return Number(a.price_amount || 0) - Number(b.price_amount || 0)
+    }
+
+    if (sort === "price_desc") {
+      return Number(b.price_amount || 0) - Number(a.price_amount || 0)
+    }
+
+    if (sort === "quantity_desc") {
+      return Number(b.quantity_available || 0) - Number(a.quantity_available || 0)
+    }
+
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  })
+}
+
 export const fetchStoreListings = async () => {
-  const response = await fetch(`${backendUrl}/store/listings?limit=24`, {
+  const response = await fetch(`${backendUrl}/store/listings?limit=48`, {
     headers: storeHeaders(),
     cache: "no-store"
   })
