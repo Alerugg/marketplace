@@ -1,4 +1,5 @@
 import AuthForm from "../../../components/AuthForm"
+import AuthPageGuard from "../../../components/AuthPageGuard"
 import Header from "../../../components/Header"
 
 export default function LoginPage() {
@@ -7,7 +8,9 @@ export default function LoginPage() {
       <Header />
 
       <section className="account-page">
-        <AuthForm mode="login" />
+        <AuthPageGuard>
+          <AuthForm mode="login" />
+        </AuthPageGuard>
       </section>
     </main>
   )

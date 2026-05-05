@@ -1,17 +1,20 @@
 "use client"
 
 import Link from "next/link"
+import ShippingStep from "./ShippingStep"
 
 import { readAuthToken } from "../lib/auth-storage"
 import { useEffect, useMemo, useState } from "react"
 
 import {
+  deleteCartLineItem,
   fetchStoreCart,
   fetchStoreListing,
   formatCondition,
   formatMoney,
   listingImage,
-  listingTitle
+  listingTitle,
+  updateCartLineItemQuantity
 } from "../lib/api"
 
 const CART_STORAGE_KEY = "dontripit_storefront_cart_id"
@@ -58,6 +61,7 @@ export default function CartView() {
   const [listingsById, setListingsById] = useState({})
   const [status, setStatus] = useState("loading")
   const [error, setError] = useState("")
+  const [lineItemAction, setLineItemAction] = useState("")
 
   const items = cart?.items || []
   const currencyCode = cart?.currency_code || items?.[0]?.currency_code || "eur"
@@ -73,6 +77,14 @@ export default function CartView() {
       return sum + marketplaceLineAmount(item, listing)
     }, 0)
   }, [items, listingsById])
+
+  const shippingTotal = Number(cart?.shipping_total ?? cart?.shipping_subtotal ?? 0)
+  const buyerTotal = cartTotal + shippingTotal
+
+  const handleCartUpdated = async (nextCart) => {
+    setCart(nextCart)
+    await hydrateMarketplaceListings(nextCart?.items || [])
+  }
 
   const hydrateMarketplaceListings = async (cartItems) => {
     const listingIds = [
@@ -105,7 +117,7 @@ export default function CartView() {
     setError("")
 
     try {
-      const payload = await fetchStoreCart(storedCartId)
+      const payload = await fetchStoreCart(storedCartId, readAuthToken())
       const nextCart = payload?.cart || null
 
       if (!nextCart) {
@@ -156,6 +168,65 @@ export default function CartView() {
     setListingsById({})
     setStatus("empty")
     setError("")
+  }
+
+  const updateLineItemQuantity = async (lineItemId, quantity) => {
+    if (!cartId || !lineItemId) {
+      return
+    }
+
+    setLineItemAction(`update:${lineItemId}`)
+    setError("")
+
+    try {
+      const token = readAuthToken() || ""
+      const payload = await updateCartLineItemQuantity({
+        cartId,
+        lineItemId,
+        quantity: Number(quantity),
+        token
+      })
+
+      const nextCart = payload?.cart || null
+
+      if (nextCart) {
+        setCart(nextCart)
+        await hydrateMarketplaceListings(nextCart.items || [])
+        setStatus((nextCart.items || []).length ? "ready" : "empty")
+      } else {
+        await loadCart(cartId)
+      }
+    } catch (updateError) {
+      setError(updateError?.message || "Could not update item quantity.")
+      setStatus("error")
+    } finally {
+      setLineItemAction("")
+    }
+  }
+
+  const removeLineItem = async (lineItemId) => {
+    if (!cartId || !lineItemId) {
+      return
+    }
+
+    setLineItemAction(`remove:${lineItemId}`)
+    setError("")
+
+    try {
+      const token = readAuthToken() || ""
+      await deleteCartLineItem({
+        cartId,
+        lineItemId,
+        token
+      })
+
+      await loadCart(cartId)
+    } catch (removeError) {
+      setError(removeError?.message || "Could not remove item from cart.")
+      setStatus("error")
+    } finally {
+      setLineItemAction("")
+    }
   }
 
   if (status === "loading") {
@@ -268,7 +339,41 @@ export default function CartView() {
                     </div>
 
                     <div className="cart-item-actions">
-                      <span className="muted">Qty {item.quantity || 1}</span>
+                      <div className="cart-item-controls">
+                        <label className="cart-quantity-control">
+                          Qty
+                          <select
+                            value={item.quantity || 1}
+                            disabled={lineItemAction === `update:${item.id}` || lineItemAction === `remove:${item.id}`}
+                            onChange={(event) => updateLineItemQuantity(item.id, Number(event.target.value))}
+                          >
+                            {Array.from(
+                              {
+                                length: Math.max(
+                                  Number(listing?.quantity_available || 0),
+                                  Number(item.quantity || 1),
+                                  1
+                                )
+                              },
+                              (_, index) => index + 1
+                            ).map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <button
+                          type="button"
+                          className="cart-remove-button"
+                          disabled={lineItemAction === `update:${item.id}` || lineItemAction === `remove:${item.id}`}
+                          onClick={() => removeLineItem(item.id)}
+                        >
+                          {lineItemAction === `remove:${item.id}` ? "Removing..." : "Remove"}
+                        </button>
+                      </div>
+
                       <strong>{formatMoney(amount, listing?.currency_code || currencyCode)}</strong>
                     </div>
                   </div>
@@ -277,6 +382,8 @@ export default function CartView() {
             })}
           </div>
         )}
+
+        <ShippingStep cart={cart} cartId={cartId} onCartUpdated={handleCartUpdated} />
       </div>
 
       <aside className="cart-summary">
@@ -292,13 +399,23 @@ export default function CartView() {
           <strong>{items.length}</strong>
         </div>
 
-        <div className="summary-row summary-total">
-          <span>Marketplace total</span>
+        <div className="summary-row">
+          <span>Listings subtotal</span>
           <strong>{formatMoney(cartTotal, currencyCode)}</strong>
         </div>
 
+        <div className="summary-row">
+          <span>Shipping</span>
+          <strong>{formatMoney(shippingTotal, currencyCode)}</strong>
+        </div>
+
+        <div className="summary-row summary-total">
+          <span>Buyer total</span>
+          <strong>{formatMoney(buyerTotal, currencyCode)}</strong>
+        </div>
+
         <p className="cart-summary-note">
-          Checkout is still disabled. Next phase must align backend cart pricing with marketplace listing pricing before payment is enabled.
+          Payment is still disabled. Next phase must align payment collection and order completion before checkout is enabled.
         </p>
 
         <button type="button" disabled>
