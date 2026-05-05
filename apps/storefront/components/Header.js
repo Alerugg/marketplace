@@ -8,7 +8,15 @@ export default function Header() {
         <h1 className="brand-title">TCG marketplace</h1>
       </Link>
 
-      <span className="nav-pill">MVP Storefront</span>
+      <nav className="nav-actions" aria-label="Storefront navigation">
+        <Link className="nav-pill" href="/">
+          Listings
+        </Link>
+        <Link className="nav-pill" href="/cart">
+          Cart
+        </Link>
+        <span className="nav-pill nav-pill-muted">MVP Storefront</span>
+      </nav>
     </header>
   )
 }

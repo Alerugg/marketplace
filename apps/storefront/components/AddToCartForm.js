@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useMemo, useState } from "react"
 
 import { addListingToCart, createStoreCart, storefrontRegionId } from "../lib/api"
@@ -77,11 +78,7 @@ export default function AddToCartForm({ listing }) {
       })
 
       setStatus("success")
-      setMessage(
-        payload?.cart?.id
-          ? "Added to cart. Cart flow is ready for the next checkout phase."
-          : "Added to cart."
-      )
+      setMessage(payload?.cart?.id ? "Added to cart." : "Added to cart.")
     } catch (error) {
       setStatus("error")
       setMessage(error?.message || "Could not add this listing to cart.")
@@ -117,6 +114,12 @@ export default function AddToCartForm({ listing }) {
         <p className={`cart-message ${status === "error" ? "cart-message-error" : "cart-message-success"}`}>
           {message}
         </p>
+      ) : null}
+
+      {status === "success" ? (
+        <Link className="cart-link" href="/cart">
+          View cart
+        </Link>
       ) : null}
     </form>
   )
