@@ -1,5 +1,7 @@
 import Link from "next/link"
 
+import AccountStatus from "./AccountStatus"
+
 export default function Header() {
   return (
     <header className="header">
@@ -17,6 +19,7 @@ export default function Header() {
         </Link>
         <span className="nav-pill nav-pill-muted">MVP Storefront</span>
       </nav>
+          <AccountStatus />
     </header>
   )
 }
