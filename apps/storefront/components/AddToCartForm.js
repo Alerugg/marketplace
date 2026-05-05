@@ -4,8 +4,7 @@ import Link from "next/link"
 import { useMemo, useState } from "react"
 
 import { addListingToCart, createStoreCart, storefrontRegionId } from "../lib/api"
-
-const CART_STORAGE_KEY = "dontripit_storefront_cart_id"
+import { CART_STORAGE_KEY } from "../lib/auth-storage"
 
 export default function AddToCartForm({ listing }) {
   const maxQuantity = Number(listing?.quantity_available || 0)
@@ -80,6 +79,36 @@ export default function AddToCartForm({ listing }) {
       setStatus("success")
       setMessage(payload?.cart?.id ? "Added to cart." : "Added to cart.")
     } catch (error) {
+      if (error?.status === 404) {
+        try {
+          window.localStorage.removeItem(CART_STORAGE_KEY)
+
+          const created = await createStoreCart()
+          const newCartId = created?.cart?.id
+
+          if (!newCartId) {
+            throw new Error("Cart was created but no cart id was returned.")
+          }
+
+          window.localStorage.setItem(CART_STORAGE_KEY, newCartId)
+          setCartId(newCartId)
+
+          const payload = await addListingToCart({
+            cartId: newCartId,
+            listingId: listing.id,
+            quantity: Number(quantity)
+          })
+
+          setStatus("success")
+          setMessage(payload?.cart?.id ? "Added to a fresh cart." : "Added to cart.")
+          return
+        } catch (retryError) {
+          setStatus("error")
+          setMessage(retryError?.message || "Could not recover your cart. Please try again.")
+          return
+        }
+      }
+
       setStatus("error")
       setMessage(error?.message || "Could not add this listing to cart.")
     }

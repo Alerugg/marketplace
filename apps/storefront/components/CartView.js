@@ -1,6 +1,8 @@
 "use client"
 
 import Link from "next/link"
+
+import { readAuthToken } from "../lib/auth-storage"
 import { useEffect, useMemo, useState } from "react"
 
 import {
@@ -50,6 +52,7 @@ const marketplaceLineAmount = (item, listing) => {
 }
 
 export default function CartView() {
+  const [hasAuthToken, setHasAuthToken] = useState(false)
   const [cartId, setCartId] = useState("")
   const [cart, setCart] = useState(null)
   const [listingsById, setListingsById] = useState({})
@@ -122,6 +125,19 @@ export default function CartView() {
   }
 
   useEffect(() => {
+    const syncAuth = () => setHasAuthToken(Boolean(readAuthToken()))
+
+    syncAuth()
+    window.addEventListener("storage", syncAuth)
+    window.addEventListener("dontripit-auth-changed", syncAuth)
+
+    return () => {
+      window.removeEventListener("storage", syncAuth)
+      window.removeEventListener("dontripit-auth-changed", syncAuth)
+    }
+  }, [])
+
+  useEffect(() => {
     const storedCartId = window.localStorage.getItem(CART_STORAGE_KEY) || ""
 
     if (!storedCartId) {
@@ -177,7 +193,15 @@ export default function CartView() {
           <h2>Could not load your cart</h2>
           <p className="cart-message cart-message-error">{error}</p>
           <div className="cart-actions">
-            <button type="button" className="secondary-button" onClick={() => cartId && loadCart(cartId)}>
+            {!hasAuthToken ? (
+            <div className="cart-auth-notice">
+              <strong>Sign in required before checkout</strong>
+              <span>Your cart is saved locally. Sign in to link it to your buyer account.</span>
+              <Link className="text-link" href="/account/login">Sign in or create account</Link>
+            </div>
+          ) : null}
+
+          <button type="button" className="secondary-button" onClick={() => cartId && loadCart(cartId)}>
               Try again
             </button>
             <button type="button" className="secondary-button" onClick={clearLocalCart}>
@@ -278,7 +302,7 @@ export default function CartView() {
         </p>
 
         <button type="button" disabled>
-          Checkout coming next
+          {hasAuthToken ? "Checkout coming next" : "Sign in to continue checkout"}
         </button>
 
         <Link className="cart-link" href="/">

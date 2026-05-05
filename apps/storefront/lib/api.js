@@ -188,7 +188,9 @@ export const addListingToCart = async ({ cartId, listingId, quantity }) => {
 
   if (!response.ok) {
     const message = await response.text().catch(() => "")
-    throw new Error(message || `Failed to add listing to cart: ${response.status}`)
+    const error = new Error(message || `Failed to add listing to cart: ${response.status}`)
+    error.status = response.status
+    throw error
   }
 
   return response.json()
@@ -214,3 +216,95 @@ export const fetchStoreCart = async (cartId) => {
 
   return response.json()
 }
+
+export const authRegisterCustomer = async ({ email, password }) => {
+  const response = await fetch(`${backendUrl}/auth/customer/emailpass/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, password })
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to register customer: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const authLoginCustomer = async ({ email, password }) => {
+  const response = await fetch(`${backendUrl}/auth/customer/emailpass`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, password })
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to login customer: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const createStoreCustomer = async ({ token, email, firstName, lastName }) => {
+  const response = await fetch(`${backendUrl}/store/customers`, {
+    method: "POST",
+    headers: {
+      ...storeHeaders(),
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      email,
+      first_name: firstName,
+      last_name: lastName
+    })
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to create customer profile: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const fetchCurrentCustomer = async (token) => {
+  const response = await fetch(`${backendUrl}/store/customers/me`, {
+    headers: {
+      ...storeHeaders(),
+      Authorization: `Bearer ${token}`
+    },
+    cache: "no-store"
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to fetch current customer: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const attachCustomerToCart = async ({ cartId, token }) => {
+  const response = await fetch(`${backendUrl}/store/carts/${cartId}/customer`, {
+    method: "POST",
+    headers: {
+      ...storeHeaders(),
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({})
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to attach customer to cart: ${response.status}`)
+  }
+
+  return response.json()
+}
+

@@ -922,3 +922,116 @@ select {
   font-size: 12px;
   line-height: 1.45;
 }
+
+.account-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-pill-button {
+  cursor: pointer;
+}
+
+.account-page {
+  max-width: 720px;
+}
+
+.auth-card {
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+  border-radius: 28px;
+  padding: 28px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+}
+
+.auth-card h2 {
+  margin: 12px 0;
+  font-size: clamp(32px, 5vw, 54px);
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.auth-card .filter-field {
+  margin-top: 16px;
+}
+
+.auth-submit {
+  width: 100%;
+  border: 1px solid rgba(139, 92, 246, 0.55);
+  background: var(--purple);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 13px 16px;
+  font-weight: 900;
+  margin-top: 18px;
+  cursor: pointer;
+}
+
+.auth-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.auth-link-button {
+  display: inline-flex;
+  justify-content: center;
+  text-align: center;
+}
+
+.auth-switch {
+  color: var(--muted);
+  margin: 18px 0 0;
+}
+
+.auth-switch a {
+  color: var(--text);
+  font-weight: 900;
+  text-decoration: underline;
+}
+
+.cart-auth-notice {
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 18px;
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.cart-auth-notice span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@media (max-width: 620px) {
+  .auth-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-nav {
+    flex-wrap: wrap;
+  }
+}
+
+.cart-checkout-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: 1px solid rgba(139, 92, 246, 0.55);
+  background: var(--purple-soft);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 12px 16px;
+  font-weight: 900;
+  text-align: center;
+}
