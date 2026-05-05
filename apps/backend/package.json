@@ -15,7 +15,7 @@
   "scripts": {
     "build": "medusa build",
     "build:symlink": "medusa build && ln -s .medusa/server/public/ public",
-    "build:windows": "medusa build && node -e \"const fs=require('fs');const path=require('path');const target='.medusa/server/public/';const link='public';try{if(fs.existsSync(link))fs.rmSync(link,{recursive:true,force:true});fs.symlinkSync(target,link,process.platform==='win32'?'junction':'dir');console.log('✔ Symlink created:',link,'→',target);}catch(e){console.error('✖ Failed to create symlink:',e.message);process.exit(1);}\"",
+    "build:windows": "medusa build && node -e \"const fs=require('fs');const path=require('path');const target='.medusa/server/public/';const link='public';try{if(fs.existsSync(link))fs.rmSync(link,{recursive:true,force:true});fs.symlinkSync(target,link,process.platform==='win32'?'junction':'dir');console.log('\u2714 Symlink created:',link,'\u2192',target);}catch(e){console.error('\u2716 Failed to create symlink:',e.message);process.exit(1);}\"",
     "seed": "medusa exec ./src/scripts/seed.ts",
     "start": "medusa start --types=false",
     "dev": "medusa develop --types=false",
@@ -26,7 +26,8 @@
     "format": "prettier --write .",
     "lint": "eslint ./src ",
     "lint:fix": "eslint ./src --fix ",
-    "generate:oas": "medusa-oas oas --type combined --paths ./src/api"
+    "generate:oas": "medusa-oas oas --type combined --paths ./src/api",
+    "seed:storefront-demo": "medusa exec ./src/scripts/seed-storefront-demo.ts"
   },
   "dependencies": {
     "@medusajs/admin-sdk": "2.10.2",
