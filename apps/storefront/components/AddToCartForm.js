@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useMemo, useState } from "react"
 
 import { addListingToCart, createStoreCart, storefrontRegionId } from "../lib/api"
-import { CART_STORAGE_KEY } from "../lib/auth-storage"
+import { CART_STORAGE_KEY, readAuthToken } from "../lib/auth-storage"
 
 export default function AddToCartForm({ listing }) {
   const maxQuantity = Number(listing?.quantity_available || 0)
@@ -73,7 +73,8 @@ export default function AddToCartForm({ listing }) {
       const payload = await addListingToCart({
         cartId: currentCartId,
         listingId: listing.id,
-        quantity: Number(quantity)
+        quantity: Number(quantity),
+        token: readAuthToken()
       })
 
       setStatus("success")

@@ -1,13 +1,17 @@
 const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
 const publishableKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
 
-const storeHeaders = () => {
+const storeHeaders = (token = "") => {
   const headers = {
     "Content-Type": "application/json"
   }
 
   if (publishableKey) {
     headers["x-publishable-api-key"] = publishableKey
+  }
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
   }
 
   return headers
@@ -173,10 +177,10 @@ export const createStoreCart = async () => {
   return response.json()
 }
 
-export const addListingToCart = async ({ cartId, listingId, quantity }) => {
+export const addListingToCart = async ({ cartId, listingId, quantity, token = "" }) => {
   const response = await fetch(`${backendUrl}/store/carts/${cartId}/listings`, {
     method: "POST",
-    headers: storeHeaders(),
+    headers: storeHeaders(token),
     body: JSON.stringify({
       listing_id: listingId,
       quantity,
@@ -196,13 +200,13 @@ export const addListingToCart = async ({ cartId, listingId, quantity }) => {
   return response.json()
 }
 
-export const fetchStoreCart = async (cartId) => {
+export const fetchStoreCart = async (cartId, token = "") => {
   if (!cartId) {
     throw new Error("Missing cart id")
   }
 
   const response = await fetch(`${backendUrl}/store/carts/${cartId}`, {
-    headers: storeHeaders(),
+    headers: storeHeaders(token),
     cache: "no-store"
   })
 
@@ -308,3 +312,115 @@ export const attachCustomerToCart = async ({ cartId, token }) => {
   return response.json()
 }
 
+
+
+export const updateStoreCart = async ({ cartId, token = "", data }) => {
+  if (!cartId) {
+    throw new Error("Missing cart id")
+  }
+
+  const response = await fetch(`${backendUrl}/store/carts/${cartId}`, {
+    method: "POST",
+    headers: storeHeaders(token),
+    body: JSON.stringify(data || {})
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to update cart: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const fetchShippingOptions = async ({ cartId, token = "" }) => {
+  if (!cartId) {
+    throw new Error("Missing cart id")
+  }
+
+  const response = await fetch(`${backendUrl}/store/shipping-options?cart_id=${encodeURIComponent(cartId)}`, {
+    headers: storeHeaders(token),
+    cache: "no-store"
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to fetch shipping options: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const addShippingMethodToCart = async ({ cartId, optionId, token = "" }) => {
+  if (!cartId) {
+    throw new Error("Missing cart id")
+  }
+
+  if (!optionId) {
+    throw new Error("Missing shipping option id")
+  }
+
+  const response = await fetch(`${backendUrl}/store/carts/${cartId}/shipping-methods`, {
+    method: "POST",
+    headers: storeHeaders(token),
+    body: JSON.stringify({
+      option_id: optionId,
+      data: {}
+    })
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to add shipping method: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+
+export const updateCartLineItemQuantity = async ({ cartId, lineItemId, quantity, token = "" }) => {
+  if (!cartId) {
+    throw new Error("Missing cart id")
+  }
+
+  if (!lineItemId) {
+    throw new Error("Missing line item id")
+  }
+
+  const response = await fetch(`${backendUrl}/store/carts/${cartId}/line-items/${lineItemId}`, {
+    method: "POST",
+    headers: storeHeaders(token),
+    body: JSON.stringify({
+      quantity: Number(quantity)
+    })
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to update line item quantity: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const deleteCartLineItem = async ({ cartId, lineItemId, token = "" }) => {
+  if (!cartId) {
+    throw new Error("Missing cart id")
+  }
+
+  if (!lineItemId) {
+    throw new Error("Missing line item id")
+  }
+
+  const response = await fetch(`${backendUrl}/store/carts/${cartId}/line-items/${lineItemId}`, {
+    method: "DELETE",
+    headers: storeHeaders(token)
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "")
+    throw new Error(message || `Failed to remove line item: ${response.status}`)
+  }
+
+  return response.json()
+}
