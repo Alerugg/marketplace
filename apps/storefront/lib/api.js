@@ -46,9 +46,9 @@ export const listingSubtitle = (listing) => {
 
 export const listingImage = (listing) => {
   return (
+    listing?.photos?.[0] ||
     listing?.catalog?.primary_image_url ||
     listing?.catalog?.image_url ||
-    listing?.photos?.[0] ||
     null
   )
 }
@@ -189,6 +189,27 @@ export const addListingToCart = async ({ cartId, listingId, quantity }) => {
   if (!response.ok) {
     const message = await response.text().catch(() => "")
     throw new Error(message || `Failed to add listing to cart: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const fetchStoreCart = async (cartId) => {
+  if (!cartId) {
+    throw new Error("Missing cart id")
+  }
+
+  const response = await fetch(`${backendUrl}/store/carts/${cartId}`, {
+    headers: storeHeaders(),
+    cache: "no-store"
+  })
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null
+    }
+
+    throw new Error(`Failed to fetch cart: ${response.status}`)
   }
 
   return response.json()
